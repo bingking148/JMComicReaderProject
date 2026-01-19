@@ -26,9 +26,19 @@ class DownloadManager:
     """下载管理器"""
 
     def __init__(self):
-        self.base_dir = "E:\\JMComicReaderProject"
-        self.downloaded_dir = os.path.join(self.base_dir, "DownloadedComics")
-        self.temp_dir = os.path.join(self.base_dir, "TempCache")
+        # 使用环境变量或默认路径
+        self.base_dir = os.environ.get(
+            "BASE_DIR",
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ),
+        )
+        self.downloaded_dir = os.environ.get(
+            "DOWNLOAD_DIR", os.path.join(self.base_dir, "DownloadedComics")
+        )
+        self.temp_dir = os.environ.get(
+            "TEMP_CACHE_DIR", os.path.join(self.base_dir, "TempCache")
+        )
 
         # 确保目录存在
         os.makedirs(self.downloaded_dir, exist_ok=True)

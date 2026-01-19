@@ -16,8 +16,16 @@ class ComicManager:
     """漫画管理器"""
 
     def __init__(self):
-        self.base_dir = "E:\\JMComicReaderProject"
-        self.downloaded_dir = os.path.join(self.base_dir, "DownloadedComics")
+        # 使用环境变量或默认路径
+        self.base_dir = os.environ.get(
+            "BASE_DIR",
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ),
+        )
+        self.downloaded_dir = os.environ.get(
+            "DOWNLOAD_DIR", os.path.join(self.base_dir, "DownloadedComics")
+        )
         self.db_file = os.path.join(self.base_dir, "backend", "comics.db")
 
         # 确保目录存在
@@ -49,7 +57,8 @@ class ComicManager:
                 comic_path TEXT,
                 download_time DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_read_time DATETIME,
-                read_progress INTEGER DEFAULT 0
+                read_progress INTEGER DEFAULT 0,
+                file_size INTEGER DEFAULT 0
             )
         """)
 

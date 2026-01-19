@@ -11,7 +11,11 @@ from typing import Optional
 
 def init_database():
     """初始化数据库"""
-    db_file = "E:\\JMComicReaderProject\\backend\\comics.db"
+    base_dir = os.environ.get(
+        "BASE_DIR",
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    )
+    db_file = os.path.join(base_dir, "backend", "comics.db")
 
     # 确保目录存在
     os.makedirs(os.path.dirname(db_file), exist_ok=True)
@@ -64,9 +68,13 @@ def init_database():
     """)
 
     # 插入默认配置
+    base_dir = os.environ.get(
+        "BASE_DIR",
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    )
     default_configs = [
-        ("download_path", "E:\\JMComicReaderProject\\DownloadedComics", "下载路径"),
-        ("cache_path", "E:\\JMComicReaderProject\\TempCache", "缓存路径"),
+        ("download_path", os.path.join(base_dir, "DownloadedComics"), "下载路径"),
+        ("cache_path", os.path.join(base_dir, "TempCache"), "缓存路径"),
         ("max_concurrent_downloads", "3", "最大并发下载数"),
         ("auto_cleanup_cache", "false", "自动清理缓存"),
         ("cache_size_limit", "104857600", "缓存大小限制(字节)"),
@@ -90,7 +98,11 @@ def init_database():
 
 def get_db_connection():
     """获取数据库连接"""
-    db_file = "E:\\JMComicReaderProject\\backend\\comics.db"
+    base_dir = os.environ.get(
+        "BASE_DIR",
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    )
+    db_file = os.path.join(base_dir, "backend", "comics.db")
     return sqlite3.connect(db_file, check_same_thread=False)
 
 

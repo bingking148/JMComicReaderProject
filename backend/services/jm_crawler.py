@@ -19,8 +19,15 @@ class JMCrawler:
     """JM漫画爬虫服务（优化版）"""
 
     def __init__(self):
-        self.base_dir = "E:\\JMComicReaderProject"
-        self.temp_cache = os.path.join(self.base_dir, "TempCache")
+        self.base_dir = os.environ.get(
+            "BASE_DIR",
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ),
+        )
+        self.temp_cache = os.environ.get(
+            "TEMP_CACHE_DIR", os.path.join(self.base_dir, "TempCache")
+        )
         self.option_file = os.path.join(self.base_dir, "backend", "jm_option.yml")
 
         # 确保目录存在
