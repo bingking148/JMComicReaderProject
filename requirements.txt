@@ -1,0 +1,7 @@
+jmcomic>=1.0.0
+flask>=3.0.0
+flask-cors>=4.0.0
+requests>=2.31.0
+pillow>=10.0.0
+img2pdf>=0.4.4
+aiofiles>=23.0.0

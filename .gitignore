@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 日志
+logs/
+*.log
+
+# 缓存
+TempCache/
+DownloadedComics/
+cover_cache.json
+
+# 临时文件
+*.tmp
+*.temp
+.nul
+
+# PDF文件
+*.pdf
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# 测试文件
+test_*.html
+pytest_cache/
+.ruff_cache/
+
+# 配置文件（包含敏感信息）
+backend/jm_option.yml
+
+# 其他
+static/
+templates/
+pdf/
