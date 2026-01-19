@@ -13,6 +13,15 @@ from datetime import datetime
 import asyncio
 import threading
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMP_CACHE_DIR = os.environ.get(
+    "TEMP_CACHE_DIR", os.path.join(PROJECT_ROOT, "TempCache")
+)
+DOWNLOAD_DIR = os.environ.get(
+    "DOWNLOAD_DIR", os.path.join(PROJECT_ROOT, "DownloadedComics")
+)
+BASE_DIR = os.environ.get("BASE_DIR", PROJECT_ROOT)
+
 # 添加后端模块路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -84,7 +93,9 @@ def get_comic_cover(jm_id):
                     "success": True,
                     "data": {
                         "cover": cover_url,
-                        "cover_local": f"E:\\JMComicReaderProject\\TempCache\\cover_{jm_id}.jpg",
+                        "cover_local": os.path.join(
+                            TEMP_CACHE_DIR, f"cover_{jm_id}.jpg"
+                        ),
                     },
                 }
             )
@@ -268,7 +279,7 @@ def delete_comic(jm_id):
 def get_cache_status():
     """获取缓存状态"""
     try:
-        cache_size = get_directory_size("E:\\JMComicReaderProject\\TempCache")
+        cache_size = get_directory_size(TEMP_CACHE_DIR)
         return jsonify(
             {
                 "success": True,
@@ -287,7 +298,7 @@ def get_cache_status():
 def clear_cache():
     """清理缓存"""
     try:
-        cache_dir = "E:\\JMComicReaderProject\\TempCache"
+        cache_dir = TEMP_CACHE_DIR
 
         # 获取清理前的缓存大小
         original_size = get_directory_size(cache_dir)

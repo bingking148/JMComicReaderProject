@@ -13,6 +13,12 @@ ENV/
 *.sqlite
 *.sqlite3
 
+# 打包产物（不需要提交）
+/build/
+/dist/
+/*.exe
+*.spec
+
 # 日志
 logs/
 *.log
@@ -49,10 +55,10 @@ test_*.html
 pytest_cache/
 .ruff_cache/
 
-# 配置文件（包含敏感信息）
-backend/jm_option.yml
+# 配置文件（包含敏感信息，打包时需要复制）
+# backend/jm_option.yml
 
-# 其他
-static/
-templates/
+# 其他（打包时需要包含）
+# static/
+# templates/
 pdf/

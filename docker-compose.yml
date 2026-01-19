@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  jmcomic-reader:
+    build: .
+    container_name: jmcomic-reader
+    # restart: unless-stopped  # 自动重启，如需关闭请注释此行
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./data/cache:/app/data/cache
+      - ./data/downloads:/app/data/downloads
+    environment:
+      - BASE_DIR=/app/data
+      - TEMP_CACHE_DIR=/app/data/cache
+      - DOWNLOAD_DIR=/app/data/downloads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
