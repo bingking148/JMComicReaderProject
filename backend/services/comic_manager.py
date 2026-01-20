@@ -330,6 +330,7 @@ class ComicManager:
                     break
 
             if not comic_dir or not os.path.exists(comic_dir):
+                print(f"漫画目录不存在: {comic_dir}")
                 return chapters
 
             # 检查是否有子目录（章节）
@@ -343,6 +344,9 @@ class ComicManager:
             image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
             if subdirs:
+                # 多章节漫画
+                print(f"检测到多章节漫画，章节数: {len(subdirs)}")
+                
                 # 尝试从JM网站获取章节顺序
                 chapter_order = self._get_chapter_order_from_jm(jm_id)
 
@@ -372,10 +376,13 @@ class ComicManager:
 
                     # 计算该章节的页数
                     page_count = 0
-                    for filename in os.listdir(subdir_path):
-                        file_ext = os.path.splitext(filename)[1].lower()
-                        if file_ext in image_extensions:
-                            page_count += 1
+                    try:
+                        for filename in os.listdir(subdir_path):
+                            file_ext = os.path.splitext(filename)[1].lower()
+                            if file_ext in image_extensions:
+                                page_count += 1
+                    except Exception as e:
+                        print(f"计算章节 {subdir} 页数失败: {e}")
 
                     chapters.append(
                         {
@@ -386,15 +393,20 @@ class ComicManager:
                             "index": i,
                         }
                     )
+                    print(f"章节 {subdir}: {page_count} 页")
             else:
                 # 单章节漫画
+                print(f"检测到单章节漫画")
                 page_count = 0
-                for filename in os.listdir(comic_dir):
-                    file_ext = os.path.splitext(filename)[1].lower()
-                    if file_ext in image_extensions and not filename.startswith(
-                        "cover"
-                    ):
-                        page_count += 1
+                try:
+                    for filename in os.listdir(comic_dir):
+                        file_ext = os.path.splitext(filename)[1].lower()
+                        if file_ext in image_extensions and not filename.startswith(
+                            "cover"
+                        ):
+                            page_count += 1
+                except Exception as e:
+                    print(f"计算单章节页数失败: {e}")
 
                 if page_count > 0:
                     chapters.append(
@@ -406,52 +418,117 @@ class ComicManager:
                             "index": 0,
                         }
                     )
+                    print(f"单章节漫画: {page_count} 页")
 
+            print(f"漫画 {jm_id} 共 {len(chapters)} 章节")
             return chapters
 
         except Exception as e:
             print(f"获取漫画章节失败 {jm_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return chapters
 
     def get_comic_page_path(
         self, jm_id: int, page_num: int, chapter_id: Optional[str] = None
     ) -> Optional[str]:
         """获取漫画页面路径（支持章节）"""
-        # 查找漫画目录
-        comic_dir = None
-        for dirname in os.listdir(self.downloaded_dir):
-            if dirname.startswith(f"{jm_id}_"):
-                comic_dir = os.path.join(self.downloaded_dir, dirname)
-                break
+        try:
+            # 查找漫画目录
+            comic_dir = None
+            for dirname in os.listdir(self.downloaded_dir):
+                if dirname.startswith(f"{jm_id}_"):
+                    comic_dir = os.path.join(self.downloaded_dir, dirname)
+                    break
 
-        if not comic_dir:
+            if not comic_dir:
+                print(f"找不到漫画目录: {jm_id}")
+                return None
+
+            # 如果指定了章节，进入章节目录
+            if chapter_id:
+                chapter_path = os.path.join(comic_dir, chapter_id)
+                if os.path.exists(chapter_path) and os.path.isdir(chapter_path):
+                    comic_dir = chapter_path
+                    print(f"使用章节目录: {chapter_path}")
+                else:
+                    print(f"章节目录不存在: {chapter_path}")
+            else:
+                # 先检查是否有以jm_id命名的子目录（向后兼容）
+                subdir_path = os.path.join(comic_dir, str(jm_id))
+                if os.path.exists(subdir_path) and os.path.isdir(subdir_path):
+                    comic_dir = subdir_path
+                    print(f"使用兼容目录: {subdir_path}")
+
+            # 支持的图片命名格式
+            possible_filenames = [
+                f"{page_num:05d}.jpg",  # 00001.jpg
+                f"{page_num:05d}.png",  # 00001.png
+                f"{page_num:04d}.jpg",  # 0001.jpg
+                f"{page_num:04d}.png",  # 0001.png
+                f"{page_num:03d}.jpg",  # 001.jpg
+                f"{page_num:03d}.png",  # 001.png
+                f"{page_num:02d}.jpg",  # 01.jpg
+                f"{page_num:02d}.png",  # 01.png
+                f"{page_num}.jpg",      # 1.jpg
+                f"{page_num}.png",      # 1.png
+            ]
+
+            # 首先尝试精确匹配
+            for filename in possible_filenames:
+                page_path = os.path.join(comic_dir, filename)
+                if os.path.exists(page_path):
+                    print(f"找到页面: {page_path}")
+                    return page_path
+
+            # 如果精确匹配失败，尝试遍历目录中的所有图片
+            try:
+                image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
+                all_images = []
+                
+                for filename in os.listdir(comic_dir):
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    if file_ext in image_extensions:
+                        # 尝试提取页码
+                        try:
+                            # 移除扩展名
+                            base_name = os.path.splitext(filename)[0]
+                            # 尝试转换为数字
+                            page_num_from_file = int(''.join(filter(str.isdigit, base_name)))
+                            all_images.append((page_num_from_file, filename))
+                        except:
+                            # 如果无法提取页码，跳过
+                            continue
+                
+                # 按页码排序
+                all_images.sort(key=lambda x: x[0])
+                
+                # 查找指定页码
+                for img_page_num, filename in all_images:
+                    if img_page_num == page_num:
+                        page_path = os.path.join(comic_dir, filename)
+                        print(f"通过遍历找到页面: {page_path}")
+                        return page_path
+                
+                # 如果找不到指定页码，返回最接近的页码
+                if all_images:
+                    # 找到最接近的页码
+                    closest_page = min(all_images, key=lambda x: abs(x[0] - page_num))
+                    page_path = os.path.join(comic_dir, closest_page[1])
+                    print(f"使用最接近的页面: {page_path} (请求: {page_num}, 实际: {closest_page[0]})")
+                    return page_path
+                    
+            except Exception as e:
+                print(f"遍历目录失败: {e}")
+
+            print(f"找不到页面 {page_num}")
             return None
 
-        # 如果指定了章节，进入章节目录
-        if chapter_id:
-            chapter_path = os.path.join(comic_dir, chapter_id)
-            if os.path.exists(chapter_path) and os.path.isdir(chapter_path):
-                comic_dir = chapter_path
-        else:
-            # 先检查是否有以jm_id命名的子目录（向后兼容）
-            subdir_path = os.path.join(comic_dir, str(jm_id))
-            if os.path.exists(subdir_path) and os.path.isdir(subdir_path):
-                comic_dir = subdir_path
-
-        # 支持的图片命名格式
-        possible_filenames = [
-            f"{page_num:05d}.jpg",  # 00001.jpg
-            f"{page_num:05d}.png",  # 00001.png
-            f"{page_num:03d}.jpg",  # 001.jpg
-            f"{page_num:03d}.png",  # 001.png
-        ]
-
-        for filename in possible_filenames:
-            page_path = os.path.join(comic_dir, filename)
-            if os.path.exists(page_path):
-                return page_path
-
-        return None
+        except Exception as e:
+            print(f"获取漫画页面路径失败 {jm_id}-{page_num}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def delete_comic(self, jm_id: int) -> bool:
         """删除漫画"""

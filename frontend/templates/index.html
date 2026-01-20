@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JM漫画阅读器 - 首页</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>JM漫画阅读器</h1>
+            <p>专业的漫画管理与阅读平台，为您提供极致的阅读体验</p>
+        </div>
+        
+        <!-- 搜索区域 -->
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" class="search-input" placeholder="输入JM号或关键词搜索漫画..." maxlength="100">
+                <button id="searchBtn" class="search-btn">搜索</button>
+            </div>
+            <div class="search-tips">
+                💡 支持JM号精准搜索和关键词模糊搜索
+            </div>
+        </div>
+        
+        <!-- 功能入口 -->
+        <div class="feature-buttons">
+            <div class="feature-card" onclick="navigateTo('/downloaded')">
+                <div class="feature-icon">📚</div>
+                <h3>我的书架</h3>
+                <p>管理已下载的漫画，随时开始阅读</p>
+            </div>
+            <div class="feature-card" onclick="showCacheStatus()">
+                <div class="feature-icon">⚡</div>
+                <h3>系统优化</h3>
+                <p>智能清理缓存，保持最佳性能</p>
+            </div>
+            <div class="feature-card" onclick="showAbout()">
+                <div class="feature-icon">❓</div>
+                <h3>帮助中心</h3>
+                <p>了解功能详情，获取使用指南</p>
+            </div>
+        </div>
+        
+        <!-- 最近搜索 -->
+        <div class="recent-searches" style="display: none;">
+            <h3>最近搜索</h3>
+            <div class="comic-grid" id="recentGrid">
+                <!-- 动态加载最近搜索记录 -->
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // 搜索按钮点击
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const keyword = document.getElementById('searchInput').value.trim();
+            
+            // 判断是JM号还是关键词
+            if (/^\d+$/.test(keyword)) {
+                // 纯数字，跳转到详情页
+                navigateTo(`/detail/${keyword}`);
+            } else if (keyword) {
+                // 关键词，跳转到搜索页
+                navigateTo(`/search?keyword=${encodeURIComponent(keyword)}`);
+            } else {
+                showMessage('请输入搜索内容', 'warning');
+            }
+        });
+
+        // 搜索框回车事件
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('searchBtn').click();
+            }
+        });
+
+        // 显示缓存状态
+        async function showCacheStatus() {
+            try {
+                // 修复：apiRequest直接返回data，不需要再访问.result.data
+                const status = await apiRequest('/api/cache/status');
+                
+                // 添加防御性检查，防止undefined访问
+                const cacheSize = status?.cache_size_mb || 0;
+                const needCleanup = status?.need_cleanup || false;
+                
+                const message = `
+                    <div class="modal" style="display: block;">
+                        <div class="modal-content">
+                            <h3>缓存状态</h3>
+                            <p>缓存大小: ${cacheSize} MB</p>
+                            <p>${needCleanup ? '需要清理' : '缓存正常'}</p>
+                            <button class="btn btn-primary" onclick="this.closest('.modal').style.display='none'">关闭</button>
+                            ${needCleanup ? '<button class="btn btn-danger" onclick="clearCache(); this.closest(\'.modal\').style.display=\'none\'">清理缓存</button>' : ''}
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', message);
+            } catch (error) {
+                console.error('获取缓存状态失败:', error);
+                showMessage('获取缓存状态失败: ' + (error.message || '未知错误'), 'error');
+            }
+        }
+
+        // 清理缓存
+        async function clearCache() {
+            try {
+                // 修复：apiRequest直接返回data，不需要再检查success
+                const result = await apiRequest('/api/cache/clear', { method: 'POST' });
+                showMessage(`清理成功：${result.cleared_size_mb || 0} MB`, 'success');
+            } catch (error) {
+                console.error('清理缓存失败:', error);
+                showMessage('清理缓存失败: ' + (error.message || '未知错误'), 'error');
+            }
+        }
+
+        // 显示关于
+        function showAbout() {
+            const message = `
+                <div class="modal" style="display: block;">
+                    <div class="modal-content">
+                        <h3>JM漫画阅读器</h3>
+                        <p>完整的JM漫画查找、展示、下载、阅读、管理系统</p>
+                        <h4>主要功能</h4>
+                        <ul style="text-align: left; margin: 20px 0;">
+                            <li>🔍 JM号精准搜索</li>
+                            <li>🔎 关键词模糊搜索</li>
+                            <li>📥 异步下载</li>
+                            <li>📖 在线阅读</li>
+                            <li>🗑️ 漫画管理</li>
+                        </ul>
+                        <h4>技术栈</h4>
+                        <p>Python Flask + JMComic-Crawler-Python</p>
+                        <button class="btn btn-primary" onclick="this.closest('.modal').style.display='none'">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', message);
+        }
+
+        // 页面加载完成后
+        document.addEventListener('DOMContentLoaded', function() {
+            // 可以在这里添加页面初始化逻辑
+            console.log('首页加载完成');
+        });
+    </script>
+</body>
+</html>

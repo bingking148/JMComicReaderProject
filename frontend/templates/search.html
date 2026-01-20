@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索结果 - JM漫画阅读器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>搜索结果</h1>
+            <p>关键词 <strong id="searchKeyword">{{ keyword }}</strong></p>
+        </div>
+        
+        <!-- 工具栏 -->
+        <div class="search-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-md);">
+                <button class="btn btn-secondary back-btn">返回首页</button>
+                
+                <div style="display: flex; align-items: center; gap: var(--space-md);">
+                    <span style="color: var(--text-secondary);">排序</span>
+                    <select id="sortSelect" class="search-input" style="width: auto; min-width: 120px;">
+                        <option value="desc">收藏量 降序</option>
+                        <option value="asc">收藏量 升序</option>
+                    </select>
+                    <button id="refreshBtn" class="btn btn-primary">刷新</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 结果统计 -->
+        <div class="search-stats" style="background: var(--bg-secondary); padding: var(--space-lg); border-radius: var(--radius-md); margin-bottom: var(--space-xl); box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+            <p style="margin: 0; color: var(--text-secondary);">找到 <strong id="resultCount" style="color: var(--text-primary);">0</strong> 个相关结果</p>
+        </div>
+        
+        <!-- 漫画列表 -->
+        <div id="comicGrid" class="comic-grid">
+            <!-- 动态加载搜索结果 -->
+        </div>
+        
+        <!-- 加载更多 -->
+        <div id="loadMore" style="text-align: center; margin: 30px 0; display: none;">
+            <button class="btn btn-primary" onclick="loadMoreResults()">加载更多</button>
+        </div>
+        
+        <!-- 无结果提示 -->
+        <div id="noResults" style="text-align: center; padding: 60px; display: none;">
+            <div style="font-size: 4em; margin-bottom: 20px;">😔</div>
+            <h3>未找到相关漫画</h3>
+            <p>试试其他关键词吧</p>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // 获取URL参数
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            const results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+        
+        // 获取关键词
+        const keyword = getUrlParameter('keyword');
+        let currentPage = 1;
+        let currentSort = 'desc';
+        let isLoading = false;
+        let hasMore = true;
+        
+        // 更新页面标题
+        document.getElementById('searchKeyword').textContent = keyword || '未知';
+        
+        // 加载搜索结果
+        async function loadSearchResults(page = 1, sort = 'desc', append = false) {
+            if (isLoading || !hasMore) return;
+            
+            isLoading = true;
+            
+            // 显示加载动画
+            const loadingDiv = showLoading(document.getElementById('comicGrid'));
+            
+            try {
+                 const results = await apiRequest(`/api/search/keyword?keyword=${encodeURIComponent(keyword)}&sort=${sort}`);
+                console.log('搜索API返回结果:', results);
+                console.log('结果数量:', results ? results.length : 0);
+                if (results && results.length > 0) {
+                    console.log('第一个结果:', results[0]);
+                }
+                
+                hideLoading(loadingDiv);
+                
+                if (results && results.length > 0) {
+                    displaySearchResults(results, append);
+                    
+                    // 更新结果计数
+                    const currentCount = document.querySelectorAll('.comic-card').length;
+                    document.getElementById('resultCount').textContent = currentCount;
+                    
+                    // 显示加载更多按钮
+                    if (results.length >= 20) { // 假设每页20个结果
+                        document.getElementById('loadMore').style.display = 'block';
+                    } else {
+                        hasMore = false;
+                    }
+                    
+                    // 隐藏无结果提示
+                    document.getElementById('noResults').style.display = 'none';
+                } else {
+                    if (!append) {
+                        // 没有结果
+                        document.getElementById('noResults').style.display = 'block';
+                        document.getElementById('loadMore').style.display = 'none';
+                    }
+                    hasMore = false;
+                }
+                
+            } catch (error) {
+                hideLoading(loadingDiv);
+                showMessage('搜索失败: ' + error.message, 'error');
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        // 显示搜索结果
+        function displaySearchResults(comics, append = false) {
+            const grid = document.getElementById('comicGrid');
+            
+            if (!append) {
+                grid.innerHTML = '';
+            }
+            
+            comics.forEach(comic => {
+                const comicCard = createComicCard(comic);
+                grid.appendChild(comicCard);
+            });
+        }
+        
+        // 创建漫画卡片（带封面懒加载）
+        function createComicCard(comic) {
+            const card = document.createElement('div');
+            card.className = 'comic-card';
+            card.onclick = () => navigateTo(`/detail/${comic.id}`);
+            
+            const title = comic.title || '未知标题';
+            const favorites = formatNumber(comic.favorites || 0);
+            const tags = comic.tags ? comic.tags.slice(0, 3).join(', ') : '无标签';
+            
+            // 使用占位图，稍后懒加载真实封面
+            const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTQwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1zaXplPSIxNCI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4K';
+            
+            card.innerHTML = `
+                <img src="${placeholder}" alt="${title}" class="comic-cover" data-jm-id="${comic.id}" data-loaded="false">
+                <div class="comic-info">
+                    <div class="comic-title" title="${title}">${title}</div>
+                    <div class="comic-meta">
+                        <span>❤️ ${favorites}</span>
+                        <span>JM-${comic.id}</span>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 0.8em; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${tags}
+                    </div>
+                </div>
+            `;
+            
+            // 标记需要懒加载封面
+            card.dataset.needsCover = comic.needs_cover ? "true" : "false";
+            card.dataset.jmId = comic.id;
+            
+            return card;
+        }
+        
+        // 加载更多结果
+        function loadMoreResults() {
+            currentPage++;
+            loadSearchResults(currentPage, currentSort, true);
+        }
+        
+        // 排序变化
+        document.getElementById('sortSelect').addEventListener('change', function() {
+            currentSort = this.value;
+            currentPage = 1;
+            hasMore = true;
+            loadSearchResults(currentPage, currentSort, false);
+        });
+        
+        // 刷新按钮
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            currentPage = 1;
+            hasMore = true;
+            loadSearchResults(currentPage, currentSort, false);
+        });
+        
+        // 封面懒加载
+        async function lazyLoadCovers() {
+            const comicCards = document.querySelectorAll('.comic-card[data-needs-cover="true"]');
+            console.log(`需要懒加载封面的卡片数量: ${comicCards.length}`);
+            
+            // 每次加载3个封面，避免同时发起太多请求
+            const batchSize = 3;
+            for (let i = 0; i < comicCards.length; i += batchSize) {
+                const batch = Array.from(comicCards).slice(i, i + batchSize);
+                
+                // 并行加载当前批次的封面
+                const promises = batch.map(card => loadCoverForCard(card));
+                await Promise.all(promises);
+                
+                // 短暂延迟，避免请求过于密集
+                if (i + batchSize < comicCards.length) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+            }
+        }
+        
+        // 为单个卡片加载封面
+        async function loadCoverForCard(card) {
+            const jmId = card.dataset.jmId;
+            if (!jmId) return;
+            
+            try {
+                console.log(`加载封面 JM-${jmId}`);
+                const response = await fetch(`/api/cover/${jmId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data && data.data.cover) {
+                    const img = card.querySelector('.comic-cover');
+                    if (img) {
+                        img.src = data.data.cover;
+                        img.dataset.loaded = "true";
+                        card.dataset.needsCover = "false";
+                        console.log(`封面加载成功 JM-${jmId}`);
+                    }
+                } else {
+                    console.log(`封面未找到 JM-${jmId}`);
+                }
+            } catch (error) {
+                console.error(`封面加载失败 JM-${jmId}:`, error);
+            }
+        }
+        
+        // 观察者API实现滚动懒加载
+        function setupIntersectionObserver() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const card = entry.target;
+                        if (card.dataset.needsCover === "true") {
+                            loadCoverForCard(card);
+                        }
+                        observer.unobserve(card);
+                    }
+                });
+            }, {
+                rootMargin: '50px', // 提前50px开始加载
+                threshold: 0.1
+            });
+            
+            // 观察所有需要封面的卡片
+            document.querySelectorAll('.comic-card[data-needs-cover="true"]').forEach(card => {
+                observer.observe(card);
+            });
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            if (keyword) {
+                loadSearchResults().then(() => {
+                    // 搜索结果加载完成后，开始懒加载封面
+                    console.log('开始懒加载封面...');
+                    
+                    // 方法1：使用观察者API（滚动时加载）
+                    if ('IntersectionObserver' in window) {
+                        setupIntersectionObserver();
+                        console.log('使用IntersectionObserver进行滚动懒加载');
+                    } 
+                    // 方法2：批量延迟加载（兼容性更好）
+                    else {
+                        setTimeout(lazyLoadCovers, 1000);
+                        console.log('使用批量延迟加载');
+                    }
+                });
+            } else {
+                showMessage('没有搜索关键词', 'warning');
+                document.getElementById('noResults').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -23,6 +23,26 @@ def init_database():
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
+    # 创建已下载漫画表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS downloaded_comics (
+            id INTEGER PRIMARY KEY,
+            jm_id INTEGER UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            author TEXT,
+            tags TEXT,
+            description TEXT,
+            favorites INTEGER DEFAULT 0,
+            pages INTEGER DEFAULT 0,
+            cover_path TEXT,
+            comic_path TEXT,
+            download_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_read_time DATETIME,
+            read_progress INTEGER DEFAULT 0,
+            file_size INTEGER DEFAULT 0
+        )
+    """)
+
     # 创建搜索历史表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS search_history (
