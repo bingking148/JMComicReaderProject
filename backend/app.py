@@ -86,6 +86,18 @@ def search_by_keyword():
 def get_comic_cover(jm_id):
     """获取漫画封面（懒加载）"""
     try:
+        # 首先检查是否已下载漫画的封面
+        if comic_manager.is_comic_downloaded(jm_id):
+            # 查找已下载漫画的封面
+            downloaded_comics = comic_manager.get_downloaded_comics()
+            for comic in downloaded_comics:
+                if comic["id"] == jm_id and comic.get("cover_path"):
+                    cover_path = comic["cover_path"]
+                    if os.path.exists(cover_path):
+                        print(f"返回已下载漫画封面: {cover_path}")
+                        return send_file(cover_path)
+        
+        # 如果没有已下载封面，从JM获取
         cover_url = jm_crawler.get_cover_url(jm_id)
         if cover_url:
             return jsonify(
@@ -101,6 +113,24 @@ def get_comic_cover(jm_id):
             )
         else:
             return jsonify({"success": False, "message": "未找到封面"})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"获取封面失败: {str(e)}"})
+
+
+@app.route("/api/cover/downloaded/<int:jm_id>")
+def get_downloaded_comic_cover(jm_id):
+    """获取已下载漫画的封面"""
+    try:
+        # 查找已下载漫画的封面
+        downloaded_comics = comic_manager.get_downloaded_comics()
+        for comic in downloaded_comics:
+            if comic["id"] == jm_id and comic.get("cover_path"):
+                cover_path = comic["cover_path"]
+                if os.path.exists(cover_path):
+                    print(f"返回已下载漫画封面: {cover_path}")
+                    return send_file(cover_path)
+        
+        return jsonify({"success": False, "message": "封面不存在"})
     except Exception as e:
         return jsonify({"success": False, "message": f"获取封面失败: {str(e)}"})
 
@@ -137,7 +167,8 @@ def download_comic(jm_id):
                     lambda p, s, m: update_download_progress(download_id, p, s, m),
                 )
                 # 下载完成后添加到已下载列表
-                comic_manager.add_downloaded_comic(jm_id, comic_info)
+                # 注意：数据库更新已在download_manager中处理
+                print(f"漫画 {jm_id} 下载任务完成")
             except Exception as e:
                 update_download_progress(download_id, 0, "error", str(e))
 
@@ -184,30 +215,54 @@ def get_downloaded_comics():
 def read_comic(jm_id):
     """阅读漫画"""
     try:
+        print(f"请求阅读漫画: {jm_id}")
+        
         if not comic_manager.is_comic_downloaded(jm_id):
+            print(f"漫画 {jm_id} 尚未下载")
             return jsonify({"success": False, "message": "该漫画尚未下载"})
 
         # 获取章节信息
         chapters = comic_manager.get_comic_chapters(jm_id)
+        print(f"获取到 {len(chapters)} 个章节")
+        
         if len(chapters) == 0:
+            print(f"漫画 {jm_id} 没有可用的章节")
             return jsonify({"success": False, "message": "没有可用的章节"})
 
         # 默认返回第一章节信息
         first_chapter = chapters[0]
-        return jsonify(
-            {
-                "success": True,
-                "data": {
-                    "chapters": chapters,
-                    "current_chapter": first_chapter["id"],
-                    "current_chapter_pages": first_chapter["pages"],
-                    "total_chapters": len(chapters),
-                    "comic_path": first_chapter["path"],
-                },
-            }
-        )
+        print(f"使用第一章节: {first_chapter['id']}")
+        
+        # 获取漫画标题
+        comic_title = f"JM-{jm_id}"
+        try:
+            downloaded_comics = comic_manager.get_downloaded_comics()
+            for comic in downloaded_comics:
+                if comic["id"] == jm_id:
+                    comic_title = comic["title"]
+                    break
+        except Exception as e:
+            print(f"获取漫画标题失败: {e}")
+        
+        result = {
+            "success": True,
+            "data": {
+                "title": comic_title,
+                "chapters": chapters,
+                "current_chapter": first_chapter["id"],
+                "current_chapter_pages": first_chapter["pages"],
+                "total_chapters": len(chapters),
+                "comic_path": first_chapter["path"],
+            },
+        }
+        
+        print(f"返回阅读数据: {result}")
+        return result
 
     except Exception as e:
+        print(f"获取阅读数据失败 {jm_id}: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"获取阅读数据失败: {str(e)}"})
 
 
@@ -215,35 +270,56 @@ def read_comic(jm_id):
 def read_comic_chapter(jm_id, chapter_id):
     """阅读指定章节"""
     try:
+        print(f"请求阅读章节: {jm_id}-{chapter_id}")
+        
         if not comic_manager.is_comic_downloaded(jm_id):
+            print(f"漫画 {jm_id} 尚未下载")
             return jsonify({"success": False, "message": "该漫画尚未下载"})
 
         # 获取章节信息
         chapters = comic_manager.get_comic_chapters(jm_id)
+        print(f"获取到 {len(chapters)} 个章节")
+        
         target_chapter = None
-
         for chapter in chapters:
             if chapter["id"] == chapter_id:
                 target_chapter = chapter
                 break
 
         if not target_chapter:
+            print(f"章节 {chapter_id} 不存在")
             return jsonify({"success": False, "message": "章节不存在"})
 
-        return jsonify(
-            {
-                "success": True,
-                "data": {
-                    "chapters": chapters,
-                    "current_chapter": target_chapter["id"],
-                    "current_chapter_pages": target_chapter["pages"],
-                    "total_chapters": len(chapters),
-                    "comic_path": target_chapter["path"],
-                },
-            }
-        )
+        # 获取漫画标题
+        comic_title = f"JM-{jm_id}"
+        try:
+            downloaded_comics = comic_manager.get_downloaded_comics()
+            for comic in downloaded_comics:
+                if comic["id"] == jm_id:
+                    comic_title = comic["title"]
+                    break
+        except Exception as e:
+            print(f"获取漫画标题失败: {e}")
+
+        result = {
+            "success": True,
+            "data": {
+                "title": comic_title,
+                "chapters": chapters,
+                "current_chapter": target_chapter["id"],
+                "current_chapter_pages": target_chapter["pages"],
+                "total_chapters": len(chapters),
+                "comic_path": target_chapter["path"],
+            },
+        }
+        
+        print(f"返回章节数据: {result}")
+        return result
 
     except Exception as e:
+        print(f"获取章节数据失败 {jm_id}-{chapter_id}: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"获取章节数据失败: {str(e)}"})
 
 
@@ -253,13 +329,20 @@ def get_comic_page(jm_id, page_num):
     try:
         # 获取章节参数
         chapter_id = request.args.get("chapter", None)
+        print(f"请求漫画页面: {jm_id}-{page_num}, 章节: {chapter_id}")
+        
         page_path = comic_manager.get_comic_page_path(jm_id, page_num, chapter_id)
 
         if page_path and os.path.exists(page_path):
+            print(f"返回页面: {page_path}")
             return send_file(page_path)
         else:
+            print(f"页面不存在: {page_path}")
             return jsonify({"success": False, "message": "页面不存在"})
     except Exception as e:
+        print(f"获取页面失败 {jm_id}-{page_num}: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"获取页面失败: {str(e)}"})
 
 
@@ -303,24 +386,51 @@ def clear_cache():
         # 获取清理前的缓存大小
         original_size = get_directory_size(cache_dir)
 
-        # 清理缓存目录（保留cover_cache.json）
+        # 清理缓存目录（保留已下载漫画的封面和cover_cache.json）
         if os.path.exists(cache_dir):
+            # 获取所有已下载漫画的封面路径
+            downloaded_cover_paths = set()
+            try:
+                downloaded_comics = comic_manager.get_downloaded_comics()
+                for comic in downloaded_comics:
+                    if comic.get("cover_path") and os.path.exists(comic["cover_path"]):
+                        # 获取封面文件名
+                        cover_filename = os.path.basename(comic["cover_path"])
+                        downloaded_cover_paths.add(cover_filename)
+                        print(f"保护已下载漫画封面: {cover_filename}")
+            except Exception as e:
+                print(f"获取已下载漫画封面列表失败: {e}")
+
+            # 保留的文件列表
+            protected_files = {"cover_cache.json"}
+            protected_files.update(downloaded_cover_paths)
+
+            print(f"保护的文件: {protected_files}")
+
+            # 清理缓存目录
+            deleted_count = 0
             for item in os.listdir(cache_dir):
                 item_path = os.path.join(cache_dir, item)
-                try:
-                    # 保留封面缓存文件
-                    if item == "cover_cache.json":
-                        continue
+                
+                # 跳过保护的文件
+                if item in protected_files:
+                    print(f"跳过保护文件: {item}")
+                    continue
 
+                try:
                     if os.path.isfile(item_path):
                         os.remove(item_path)
+                        deleted_count += 1
+                        print(f"删除文件: {item}")
                     elif os.path.isdir(item_path):
                         import shutil
-
                         shutil.rmtree(item_path)
+                        print(f"删除目录: {item}")
                 except Exception as e:
                     print(f"删除 {item_path} 失败: {e}")
                     continue
+
+            print(f"缓存清理完成，共删除 {deleted_count} 个文件/目录")
 
         # 获取清理后的缓存大小
         final_size = get_directory_size(cache_dir)
@@ -339,6 +449,9 @@ def clear_cache():
             }
         )
     except Exception as e:
+        print(f"清理缓存失败: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"清理缓存失败: {str(e)}"})
 
 

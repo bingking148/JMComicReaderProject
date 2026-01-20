@@ -78,54 +78,6 @@ python backend/app.py
 
 ---
 
-### 🐳 方式二：Docker 部署（生产环境，推荐）
-
-项目支持 Docker 和 Docker Compose 快速部署，适合生产环境使用。
-
-#### 1. 克隆项目
-
-```bash
-git clone https://github.com/bingking148/JMComicReaderProject.git
-cd JMComicReaderProject
-```
-
-#### 2. 使用 Docker Compose（推荐）
-
-```bash
-# 一键启动
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-
-# 停止服务
-docker-compose stop
-
-# 重启服务
-docker-compose restart
-```
-
-访问地址：`http://localhost:5000`
-
-#### 3. 使用 Docker 命令
-
-```bash
-# 构建镜像
-docker build -t jmcomic-reader .
-
-# 运行容器
-docker run -d \
-  --name jmcomic-reader \
-  -p 5000:5000 \
-  -v $(pwd)/data:/app/data \
-  --restart unless-stopped \
-  jmcomic-reader
-```
-
-详细的 Docker 部署指南请参考 [DOCKER.md](DOCKER.md)
-
----
-
 ## 🚀 使用说明
 
 ### 📌 普通部署使用
@@ -143,6 +95,7 @@ python start.py
 ```
 
 或者直接运行：
+
 ```bash
 python backend/app.py
 ```
@@ -152,39 +105,6 @@ python backend/app.py
 打开浏览器访问：
 - **本地访问**: http://localhost:5000
 - **局域网访问**: http://你的IP:5000
-
----
-
-### 🐳 Docker 部署使用
-
-#### 启动服务
-
-```bash
-# 使用 Docker Compose
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-
-# 停止服务
-docker-compose stop
-
-# 重启服务
-docker-compose restart
-```
-
-#### 访问应用
-
-打开浏览器访问：
-- **本地访问**: http://localhost:5000
-- **局域网访问**: http://你的IP:5000
-
-#### 数据持久化
-
-数据存储在 `./data` 目录下：
-- `./data/backend/` - 数据库和配置文件
-- `./data/cache/` - 缓存目录
-- `./data/downloads/` - 下载目录
 
 ---
 
@@ -223,6 +143,7 @@ JMComicReaderProject/
 ├── frontend/                  # 前端代码
 │   ├── static/               # 静态资源
 │   │   ├── css/             # 样式文件
+│   │   │   └── style.css   # 主样式
 │   │   └── js/              # JavaScript文件
 │   │       └── app.js       # 前端核心逻辑
 │   └── templates/            # HTML模板
@@ -231,18 +152,9 @@ JMComicReaderProject/
 │       ├── detail.html      # 详情页
 │       ├── downloaded.html  # 已下载页
 │       └── reader.html      # 阅读页
-├── data/                      # 数据目录（Docker部署时生成）
-│   ├── backend/             # 数据库和配置
-│   ├── cache/               # 缓存目录
-│   └── downloads/           # 下载目录
 ├── DownloadedComics/         # 已下载漫画存储（普通部署时自动生成）
 ├── TempCache/               # 临时缓存（普通部署时自动生成）
-├── logs/                    # 日志文件（自动生成）
 ├── requirements.txt         # Python依赖
-├── Dockerfile               # Docker镜像构建配置
-├── docker-compose.yml       # Docker Compose配置
-├── .dockerignore          # Docker排除文件
-├── DOCKER.md              # Docker部署详细指南
 ├── start.py                # 启动脚本（Linux/Mac）
 ├── start.bat               # 启动脚本（Windows）
 └── README.md              # 项目说明

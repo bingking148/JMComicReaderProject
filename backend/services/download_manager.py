@@ -132,6 +132,9 @@ class DownloadManager:
                 # 保存漫画信息
                 await self._save_comic_info(comic_dir, comic_info)
 
+                # 确保文件移动完成后再添加到数据库
+                await self._ensure_files_ready(comic_dir, jm_id)
+
                 progress_callback(100, "completed", "下载完成")
                 return True
             else:
@@ -361,6 +364,92 @@ class DownloadManager:
         from datetime import datetime
 
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    async def _ensure_files_ready(self, comic_dir: str, jm_id: int):
+        """
+        确保文件准备就绪并更新数据库
+        
+        Args:
+            comic_dir: 漫画目录
+            jm_id: 漫画ID
+        """
+        try:
+            # 等待文件系统同步完成
+            await asyncio.sleep(1)
+            
+            # 检查必要文件是否存在
+            required_files = []
+            
+            # 检查是否有章节目录
+            subdirs = [
+                d for d in os.listdir(comic_dir)
+                if os.path.isdir(os.path.join(comic_dir, d))
+            ]
+            
+            if subdirs:
+                # 多章节漫画：检查每个章节目录
+                for subdir in subdirs:
+                    chapter_path = os.path.join(comic_dir, subdir)
+                    images = [
+                        f for f in os.listdir(chapter_path)
+                        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp'))
+                    ]
+                    if images:
+                        required_files.extend([os.path.join(chapter_path, img) for img in images])
+            else:
+                # 单章节漫画：检查漫画目录中的图片
+                images = [
+                    f for f in os.listdir(comic_dir)
+                    if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp')) 
+                    and not f.startswith('cover')
+                ]
+                if images:
+                    required_files.extend([os.path.join(comic_dir, img) for img in images])
+            
+            # 等待所有文件准备就绪
+            max_wait = 10  # 最多等待10秒
+            wait_time = 0
+            while wait_time < max_wait:
+                all_ready = True
+                for file_path in required_files:
+                    if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+                        all_ready = False
+                        break
+                
+                if all_ready:
+                    break
+                    
+                await asyncio.sleep(1)
+                wait_time += 1
+            
+            # 文件准备就绪后，通知调用方更新数据库
+            print(f"漫画 {jm_id} 文件准备就绪，共 {len(required_files)} 个文件")
+            
+            # 更新数据库
+            try:
+                from services.comic_manager import ComicManager
+                comic_manager = ComicManager()
+                
+                # 获取漫画信息
+                info_path = os.path.join(comic_dir, "info.json")
+                comic_info = {}
+                if os.path.exists(info_path):
+                    import json
+                    with open(info_path, "r", encoding="utf-8") as f:
+                        comic_info = json.load(f)
+                
+                # 添加到数据库
+                comic_info["id"] = jm_id
+                success = comic_manager.add_downloaded_comic(jm_id, comic_info)
+                if success:
+                    print(f"漫画 {jm_id} 已添加到数据库")
+                else:
+                    print(f"漫画 {jm_id} 添加到数据库失败")
+            except Exception as db_error:
+                print(f"更新数据库失败 {jm_id}: {db_error}")
+            
+        except Exception as e:
+            print(f"确保文件准备就绪失败 {jm_id}: {e}")
 
     async def _create_placeholder_images(
         self, jm_id: int, comic_dir: str, comic_info: dict, progress_callback: Callable

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漫画详情 - JM漫画阅读器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .detail-container {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2xl);
+            margin-bottom: var(--space-xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-light);
+        }
+        
+        .detail-header {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: var(--space-2xl);
+            margin-bottom: var(--space-2xl);
+            align-items: start;
+        }
+        
+        .detail-cover {
+            width: 100%;
+            height: 420px;
+            object-fit: cover;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.3s ease;
+        }
+        
+        .detail-cover:hover {
+            transform: scale(1.02);
+        }
+        
+        .detail-info h2 {
+            font-size: 2.25rem;
+            margin-bottom: var(--space-lg);
+            color: var(--text-primary);
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        
+        .detail-meta {
+            margin-bottom: var(--space-lg);
+            background: var(--bg-tertiary);
+            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+        }
+        
+        .detail-meta-item {
+            display: flex;
+            margin-bottom: var(--space-sm);
+            align-items: center;
+        }
+        
+        .detail-meta-label {
+            font-weight: 600;
+            min-width: 100px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .detail-meta-value {
+            flex: 1;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+            margin-top: var(--space-xs);
+        }
+        
+        .tag {
+            background: var(--primary-gradient);
+            color: white;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 500;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: var(--space-md);
+            margin-top: var(--space-lg);
+            flex-wrap: wrap;
+        }
+        
+        .description-section {
+            margin-top: var(--space-2xl);
+            background: var(--bg-tertiary);
+            padding: var(--space-xl);
+            border-radius: var(--radius-md);
+        }
+        
+        .description-section h3 {
+            margin-bottom: var(--space-md);
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            background: var(--primary-gradient);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding-bottom: var(--space-sm);
+        }
+        
+        .description-content {
+            line-height: 1.8;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            font-size: 1rem;
+        }
+        
+        .download-progress {
+            margin-top: var(--space-xl);
+            padding: var(--space-xl);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            display: none;
+            border: 1px solid var(--border-light);
+        }
+        
+        .download-progress h4 {
+            margin-bottom: var(--space-md);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .detail-container {
+                padding: var(--space-lg);
+            }
+            
+            .detail-header {
+                grid-template-columns: 1fr;
+                gap: var(--space-lg);
+                text-align: center;
+            }
+            
+            .detail-cover {
+                max-width: 280px;
+                margin: 0 auto;
+                height: 380px;
+            }
+            
+            .detail-info h2 {
+                font-size: 1.75rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .action-buttons .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>漫画详情</h1>
+            <p>JM号 <strong>{{ jm_id }}</strong></p>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="search-container">
+            <button class="btn btn-secondary back-btn">← 返回</button>
+        </div>
+
+        <!-- 详情内容 -->
+        <div id="detailContainer" class="detail-container">
+            <div class="loading-container">
+                <div class="loading"></div>
+                <p>正在加载漫画信息...</p>
+            </div>
+        </div>
+
+        <!-- 下载进度 -->
+        <div id="downloadProgress" class="download-progress">
+            <h4>📥 下载进度</h4>
+            <div class="progress-container">
+                <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <p id="progressText" class="progress-text">准备下载...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        const jmId = {{ jm_id }};
+        let comicInfo = null;
+        let downloadId = null;
+        let isDownloaded = false;
+
+        // 加载漫画详情
+        async function loadComicDetail() {
+            try {
+                const comic = await apiRequest(`${API_BASE_URL}/search/jm/${jmId}`);
+                comicInfo = comic;
+                displayComicDetail(comic);
+                
+                // 检查是否已下载
+                await checkDownloadStatus();
+                
+            } catch (error) {
+                showMessage('加载漫画信息失败: ' + error.message, 'error');
+                document.getElementById('detailContainer').innerHTML = `
+                    <div style="text-align: center; padding: 60px;">
+                        <div style="font-size: 4em; margin-bottom: 20px;">😔</div>
+                        <h3>未找到该漫画</h3>
+                        <p>可能是JM号错误或漫画不存在</p>
+                        <button class="btn btn-primary" onclick="goBack()" style="margin-top: 20px;">返回</button>
+                    </div>
+                `;
+            }
+        }
+
+        // 显示漫画详情
+        function displayComicDetail(comic) {
+            const container = document.getElementById('detailContainer');
+            
+            const coverUrl = comic.cover || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMjAwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1zaXplPSIxOCI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4K';
+            const title = comic.title || '未知标题';
+            const author = comic.author || '未知作者';
+            const favorites = formatNumber(comic.favorites || 0);
+            const pages = comic.pages || 0;
+            const tags = comic.tags || [];
+            const description = comic.description || '暂无简介';
+            
+            container.innerHTML = `
+                <div class="detail-header">
+                    <div>
+                        <img src="${coverUrl}" alt="${title}" class="detail-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMjAwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1zaXplPSIxOCI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4K'">
+                    </div>
+                    <div class="detail-info">
+                        <h2>${title}</h2>
+                        <div class="detail-meta">
+                            <div class="detail-meta-item">
+                                <span class="detail-meta-label">JM号：</span>
+                                <span class="detail-meta-value">${comic.id}</span>
+                            </div>
+                            <div class="detail-meta-item">
+                                <span class="detail-meta-label">作者：</span>
+                                <span class="detail-meta-value">${author}</span>
+                            </div>
+                            <div class="detail-meta-item">
+                                <span class="detail-meta-label">收藏量：</span>
+                                <span class="detail-meta-value">❤️ ${favorites}</span>
+                            </div>
+                            <div class="detail-meta-item">
+                                <span class="detail-meta-label">页数：</span>
+                                <span class="detail-meta-value">${pages} 页</span>
+                            </div>
+                            <div class="detail-meta-item">
+                                <span class="detail-meta-label">标签：</span>
+                                <div class="detail-meta-value">
+                                    <div class="tags-container">
+                                        ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="action-buttons" id="actionButtons">
+                            <button class="btn btn-primary" onclick="downloadComic(${comic.id})">📥 开始下载</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="description-section">
+                    <h3>📖 简介</h3>
+                    <div class="description-content">${description}</div>
+                </div>
+            `;
+        }
+
+        // 检查下载状态
+        async function checkDownloadStatus() {
+            try {
+                // 这里应该调用后端API检查是否已下载
+                // 现在模拟检查
+                isDownloaded = false; // 默认未下载
+                updateActionButtons();
+                
+            } catch (error) {
+                console.error('检查下载状态失败:', error);
+            }
+        }
+
+        // 更新操作按钮
+        function updateActionButtons() {
+            const buttonsContainer = document.getElementById('actionButtons');
+            if (!buttonsContainer) return;
+            
+            if (isDownloaded) {
+                buttonsContainer.innerHTML = `
+                    <button class="btn btn-primary" onclick="startReading(${jmId})">📖 已下载，前往阅读</button>
+                    <button class="btn btn-secondary" onclick="showReDownloadConfirm()">🔄 重新下载</button>
+                `;
+            } else {
+                buttonsContainer.innerHTML = `
+                    <button class="btn btn-primary" onclick="downloadComic(${jmId})">📥 开始下载</button>
+                `;
+            }
+        }
+
+        // 显示重新下载确认
+        function showReDownloadConfirm() {
+            if (confirm('该漫画已下载，是否重新下载？重新下载将覆盖原文件。')) {
+                downloadComic(jmId);
+            }
+        }
+
+        // 下载漫画（重写以支持进度显示）
+        async function downloadComic(jmId) {
+            try {
+                showMessage('开始下载，请稍候...', 'info');
+                
+                // 显示下载进度区域
+                document.getElementById('downloadProgress').style.display = 'block';
+                
+                const response = await fetch(`${API_BASE_URL}/download/${jmId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('下载任务已启动', 'success');
+                    downloadId = data.download_id;
+                    
+                    // 开始监控下载进度
+                    monitorDownloadProgressForDetail(data.download_id);
+                } else {
+                    if (data.downloaded) {
+                        showReDownloadConfirm();
+                    } else {
+                        showMessage(data.message, 'error');
+                    }
+                }
+            } catch (error) {
+                showMessage('下载失败: ' + error.message, 'error');
+            }
+        }
+
+        // 监控下载进度（详情页专用）
+        function monitorDownloadProgressForDetail(downloadId) {
+            const progressInterval = setInterval(async () => {
+                try {
+                    const progress = await apiRequest(`${API_BASE_URL}/download/progress/${downloadId}`);
+                    
+                    // 更新进度条
+                    const progressBar = document.getElementById('progressBar');
+                    const progressText = document.getElementById('progressText');
+                    
+                    if (progressBar) {
+                        progressBar.style.width = progress.progress + '%';
+                    }
+                    
+                    if (progressText) {
+                        progressText.textContent = progress.message;
+                    }
+                    
+                    if (progress.status === 'completed') {
+                        showMessage('下载完成！', 'success');
+                        clearInterval(progressInterval);
+                        isDownloaded = true;
+                        updateActionButtons();
+                        
+                        // 3秒后隐藏进度条
+                        setTimeout(() => {
+                            document.getElementById('downloadProgress').style.display = 'none';
+                        }, 3000);
+                    } else if (progress.status === 'error') {
+                        showMessage('下载失败: ' + progress.message, 'error');
+                        clearInterval(progressInterval);
+                    }
+                } catch (error) {
+                    console.error('获取下载进度失败:', error);
+                    clearInterval(progressInterval);
+                }
+            }, 3000);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadComicDetail();
+        });
+    </script>
+</body>
+</html>
