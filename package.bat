@@ -7,6 +7,8 @@ title JM漫画阅读器 - 打包工具
 echo.
 echo ╔═══════════════════════════════════════════════════════════╗
 echo ║          🎨 JM漫画阅读器 - 一键打包工具                 ║
+echo ║                                                           ║
+echo ║           生成完全独立的可执行文件（无需 Python）           ║
 echo ╚═══════════════════════════════════════════════════════════╝
 echo.
 
@@ -63,14 +65,14 @@ echo.
 echo 📦 打包位置: %DIST_DIR%\%PORTABLE_DIR%
 echo.
 echo 📋 打包内容:
-echo    • 可执行文件: JMComicReader.exe
+echo    • 可执行文件: JMComicReader.exe (包含完整 Python 运行时)
 echo    • 启动脚本: 启动.bat
-echo    • 依赖文件: requirements.txt
+echo    • 依赖文件: requirements.txt (备用）
 echo    • 说明文档: README.txt
 echo.
 echo 💡 使用方法:
 echo    将整个 %PORTABLE_DIR% 文件夹复制到目标计算机
-echo    双击 '启动.bat' 即可运行
+echo    双击 '启动.bat' 即可运行（无需安装 Python）
 echo.
 echo [%time%] 打包完成 >> build.log
 
@@ -124,27 +126,48 @@ exit /b 0
 :build_executable
 echo.
 echo ════════════════════════════════════════════════════════════
-echo  🔨 构建可执行文件...
+echo  🔨 构建独立可执行文件...
 echo ════════════════════════════════════════════════════════════
+echo.
+echo 这可能需要几分钟时间，请耐心等待...
 echo.
 
 cd %BUILD_DIR%
 
 if exist "jm_reader.spec" (
-    echo 使用现有的 spec 文件...
-    "%PYTHON_CMD%" -m PyInstaller --clean jm_reader.spec
+    echo 使用 spec 文件构建...
+    "%PYTHON_CMD%" -m PyInstaller --clean --noconfirm jm_reader.spec
 ) else (
-    echo 使用默认配置构建...
-    "%PYTHON_CMD%" -m PyInstaller --onefile --name JMComicReader --add-data "../backend;backend" --add-data "../frontend;frontend" ../start.py
+    echo 使用默认配置构建（单文件模式）...
+    "%PYTHON_CMD%" -m PyInstaller --onefile --noconfirm ^
+        --name JMComicReader ^
+        --add-data "../backend;backend" ^
+        --add-data "../frontend;frontend" ^
+        --hidden-import flask ^
+        --hidden-import flask_cors ^
+        --hidden-import jmcomic ^
+        --hidden-import aiohttp ^
+        --hidden-import aiofiles ^
+        --hidden-import requests ^
+        --hidden-import pillow ^
+        --hidden-import img2pdf ^
+        --hidden-import sqlite3 ^
+        ../start.py
 )
 
 cd ..
 
 if not exist "%BUILD_DIR%\dist\JMComicReader.exe" (
     echo ❌ 可执行文件生成失败
+    echo.
+    echo 请检查：
+    echo   1. 是否有足够的磁盘空间
+    echo   2. 是否有写入权限
+    echo   3. 查看上方错误信息
     exit /b 1
 )
 
+echo.
 echo ✓ 可执行文件构建完成
 exit /b 0
 
@@ -178,7 +201,8 @@ if errorlevel 1 (
         echo ## 快速开始
         echo.
         echo ### Windows 用户
-        echo 双击 `启动.bat` 文件即可启动应用
+        echo.
+        echo **无需安装 Python！** 双击 `启动.bat` 文件即可启动应用。
         echo.
         echo ## 访问地址
         echo.
@@ -192,7 +216,7 @@ if errorlevel 1 (
         echo.
         echo ## 目录说明
         echo.
-        echo - `JMComicReader.exe` - 主程序
+        echo - `JMComicReader.exe` - 主程序（包含完整 Python 运行时）
         echo - `DownloadedComics/` - 已下载的漫画
         echo - `TempCache/` - 临时缓存目录
         echo.
@@ -201,12 +225,32 @@ if errorlevel 1 (
         echo - 首次运行会自动创建必要的目录和数据库文件
         echo - 请确保端口 5000 未被占用
         echo - 需要网络连接才能下载漫画
+        echo - 本程序已包含所有依赖，无需额外安装
         echo.
         echo ## 系统要求
         echo.
         echo - Windows 10/11
         echo - 网络连接
-        echo - 无需预装 Python
+        echo - **无需 Python**
+        echo.
+        echo ## 故障排除
+        echo.
+        echo ### 端口被占用
+        echo ```cmd
+        echo netstat -ano ^| findstr :5000
+        echo taskkill /F /PID ^<进程ID^>
+        echo ```
+        echo.
+        echo ### 防火墙拦截
+        echo.
+        echo 如果无法访问 localhost:5000，请：
+        echo 1. 打开 Windows 防火墙设置
+        echo 2. 允许 JMComicReader.exe 通过防火墙
+        echo.
+        echo ## 技术支持
+        echo.
+        echo - 查看日志: startup.log
+        echo - 提交问题: https://github.com/bingking148/JMComicReaderProject/issues
         echo.
     ) > "%PORTABLE_PATH%\README.txt"
 )

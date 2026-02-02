@@ -14,29 +14,75 @@ echo.
 
 cd /d "%~dp0"
 
-set "PYTHON_CMD=python"
-set "PYTHON_VERSION=3.8+"
 set "APP_PORT=5000"
-
 set "LOG_FILE=startup.log"
 
 echo [%time%] 启动检查开始 > "%LOG_FILE%"
 
+call :check_port
+if errorlevel 1 (
+    echo.
+    set /p "continue=是否继续启动？: "
+    if /i not "!continue!"=="y" (
+        echo 已取消启动
+        pause
+        exit /b 0
+    )
+)
+
+call :create_directories
+
+REM 优先检查是否有打包好的可执行文件
+if exist "JMComicReader.exe" (
+    echo.
+    echo ✓ 检测到独立可执行文件
+    echo.
+    echo ════════════════════════════════════════════════════════════
+    echo  🚀 正在启动 JM漫画阅读器（独立模式）...
+    echo ════════════════════════════════════════════════════════════
+    echo.
+    echo 📱 访问地址:
+    echo    • 本地访问: http://localhost:%APP_PORT%
+    echo    • 局域网: http://127.0.0.1:%APP_PORT%
+    echo.
+    echo 📂 数据目录:
+    echo    • 已下载漫画: "%~dp0DownloadedComics"
+    echo    • 临时缓存: "%~dp0TempCache"
+    echo.
+    echo ⌨️  按 Ctrl+C 可停止服务
+    echo.
+    echo ════════════════════════════════════════════════════════════
+    echo.
+
+    echo [%time%] 启动独立应用 >> "%LOG_FILE%"
+
+    JMComicReader.exe
+    goto :end
+)
+
+REM 如果没有可执行文件，检查 Python 环境
 call :check_python
 if errorlevel 1 (
     echo.
-    echo ❌ 错误: 未找到 Python 或版本不符合要求
+    echo ════════════════════════════════════════════════════════════
+    echo  ⚠️  未检测到独立可执行文件
+    echo ════════════════════════════════════════════════════════════
     echo.
-    echo 请安装 Python %PYTHON_VERSION%:
-    echo 1. 访问 https://www.python.org/downloads/
-    echo 2. 下载并安装 Python 3.8 或更高版本
-    echo 3. 安装时勾选 "Add Python to PATH"
+    echo ❌ 错误: 未找到 Python 环境
+    echo.
+    echo 请选择以下方式之一:
+    echo.
+    echo  方式一: 下载独立可执行文件（推荐）
+    echo    从项目发布页面下载 JMComicReader.exe
+    echo.
+    echo  方式二: 安装 Python 环境
+    echo    1. 访问 https://www.python.org/downloads/
+    echo    2. 下载并安装 Python 3.8 或更高版本
+    echo    3. 安装时勾选 "Add Python to PATH"
     echo.
     pause
     exit /b 1
 )
-
-echo [%time%] Python 检查通过 >> "%LOG_FILE%"
 
 call :check_dependencies
 if errorlevel 1 (
@@ -52,24 +98,9 @@ if errorlevel 1 (
     )
 )
 
-echo [%time%] 依赖检查通过 >> "%LOG_FILE%"
-
-call :check_port
-if errorlevel 1 (
-    echo.
-    set /p "continue=是否继续启动？(y/n): "
-    if /i not "!continue!"=="y" (
-        echo 已取消启动
-        pause
-        exit /b 0
-    )
-)
-
-call :create_directories
-
 echo.
 echo ════════════════════════════════════════════════════════════
-echo  🚀 正在启动 JM漫画阅读器...
+echo  🚀 正在启动 JM漫画阅读器（Python 模式）...
 echo ════════════════════════════════════════════════════════════
 echo.
 echo 📱 访问地址:
@@ -90,18 +121,19 @@ echo [%time%] 启动应用 >> "%LOG_FILE%"
 set FLASK_ENV=production
 python -c "from backend.app import app; app.run(host='0.0.0.0', port=%APP_PORT%, debug=False, use_reloader=False, threaded=True)"
 
+:end
 pause
 exit /b 0
 
 :check_python
 echo ✓ 检查 Python 环境...
-"%PYTHON_CMD%" --version >nul 2>&1
+python --version >nul 2>&1
 if errorlevel 1 (
     echo   ✗ Python 未安装或未添加到 PATH
     exit /b 1
 )
 
-for /f "tokens=2" %%i in ('%PYTHON_CMD% --version 2^>^&1') do set "PY_VER=%%i"
+for /f "tokens=2" %%i in ('python --version 2^>^&1') do set "PY_VER=%%i"
 echo   ✓ Python 版本: %PY_VER%
 
 for /f "tokens=1,2 delims=." %%a in ("%PY_VER%") do (
@@ -122,17 +154,17 @@ exit /b 0
 
 :check_dependencies
 echo ✓ 检查 Python 依赖...
-"%PYTHON_CMD%" -c "import flask" 2>nul
+python -c "import flask" 2>nul
 if errorlevel 1 (
     echo   ✗ 缺少 flask
     exit /b 1
 )
-"%PYTHON_CMD%" -c "import flask_cors" 2>nul
+python -c "import flask_cors" 2>nul
 if errorlevel 1 (
     echo   ✗ 缺少 flask_cors
     exit /b 1
 )
-"%PYTHON_CMD%" -c "import jmcomic" 2>nul
+python -c "import jmcomic" 2>nul
 if errorlevel 1 (
     echo   ✗ 缺少 jmcomic
     exit /b 1
@@ -149,10 +181,10 @@ echo ═════════════════════════
 echo.
 
 if exist requirements.txt (
-    "%PYTHON_CMD%" -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ) else (
     echo   安装核心依赖...
-    "%PYTHON_CMD%" -m pip install flask flask-cors jmcomic requests pillow img2pdf aiofiles aiohttp -i https://pypi.tuna.tsinghua.edu.cn/simple
+    python -m pip install flask flask-cors jmcomic requests pillow img2pdf aiofiles aiohttp -i https://pypi.tuna.tsinghua.edu.cn/simple
 )
 
 if errorlevel 1 (
