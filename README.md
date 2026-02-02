@@ -51,8 +51,10 @@
 1. 下载 `JMComicReader_Portable.zip`
 2. 解压到任意位置
 3. 双击 `启动.bat` 文件
-4. 等待自动安装依赖并启动
+4. 系统会自动检测并运行打包好的可执行文件
 5. 访问 http://localhost:5000
+
+> ✅ **完全独立运行**：可执行文件已包含完整 Python 运行时和所有依赖，无需安装任何软件！
 
 #### macOS 用户
 1. 下载 `JMComicReader_Portable.zip`
@@ -61,13 +63,17 @@
 4. 或运行 `./启动.sh`
 5. 访问 http://localhost:5000
 
+> ✅ **完全独立运行**：应用包已包含完整 Python 运行时和所有依赖，无需安装任何软件！
+
 #### Linux 用户
 1. 下载 `JMComicReader_Portable.zip`
 2. 解压到任意位置
 3. 运行 `chmod +x 启动.sh && ./启动.sh`
 4. 访问 http://localhost:5000
 
-> 💡 **提示**: 首次运行会自动安装所有依赖，无需手动配置。
+> ✅ **完全独立运行**：可执行文件已包含完整 Python 运行时和所有依赖，无需安装任何软件！
+
+> 💡 **提示**: 启动脚本会自动检测可执行文件，如果没有则会检查并安装 Python 环境（备用方案）。
 
 ---
 
@@ -106,7 +112,9 @@ python backend/app.py
 
 ---
 
-### 📌 方式三：构建便携包
+### 📌 方式三：构建便携包（开发者）
+
+**需要 Python 环境来构建，但生成的启动包无需 Python！**
 
 #### Windows
 ```cmd
@@ -120,6 +128,8 @@ chmod +x package.sh
 ```
 
 打包完成后，`dist/JMComicReader_Portable/` 文件夹即为可分发的一键启动包。
+
+> 💡 **说明**: 此步骤需要 Python 3.8+ 环境来运行 PyInstaller，但生成的可执行文件已包含完整 Python 运行时，最终用户无需安装 Python。
 
 ---
 
@@ -198,15 +208,23 @@ JMComicReaderProject/
 │       ├── downloaded.html  # 已下载页
 │       └── reader.html      # 阅读页
 ├── build/                    # 打包配置
-│   ├── jm_reader.spec       # PyInstaller配置
-│   └── build.py            # 打包脚本
+│   ├── jm_reader.spec       # PyInstaller配置（独立可执行文件）
+│   └── build.py            # Python打包脚本
+├── dist/                    # 打包输出目录
+│   └── JMComicReader_Portable/ # 一键启动包
+│       ├── JMComicReader.exe # Windows可执行文件（包含Python）
+│       ├── JMComicReader     # macOS/Linux可执行文件
+│       ├── JMComicReader.app # macOS应用包
+│       ├── 启动.bat         # Windows启动脚本
+│       ├── 启动.sh          # macOS/Linux启动脚本
+│       └── README.txt        # 便携包说明
 ├── DownloadedComics/         # 已下载漫画存储（自动生成）
 ├── TempCache/               # 临时缓存（自动生成）
 ├── requirements.txt         # Python依赖
 ├── start.py                # 启动脚本（Linux/Mac）
 ├── start.bat               # 启动脚本（Windows）
-├── 启动.bat                 # 一键启动脚本（Windows）
-├── 启动.sh                  # 一键启动脚本（macOS/Linux）
+├── 启动.bat                 # 一键启动脚本（Windows，优先检测可执行文件）
+├── 启动.sh                  # 一键启动脚本（macOS/Linux，优先检测可执行文件）
 ├── install_deps.py         # 依赖安装脚本
 ├── package.bat             # 打包脚本（Windows）
 ├── package.sh              # 打包脚本（macOS/Linux）
