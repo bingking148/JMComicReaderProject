@@ -43,7 +43,35 @@
 
 ## 📦 安装步骤
 
-### 📌 方式一：普通部署（开发环境）
+### 📌 方式一：一键启动包（推荐，最简单）
+
+**无需预装 Python，双击即用！**
+
+#### Windows 用户
+1. 下载 `JMComicReader_Portable.zip`
+2. 解压到任意位置
+3. 双击 `启动.bat` 文件
+4. 等待自动安装依赖并启动
+5. 访问 http://localhost:5000
+
+#### macOS 用户
+1. 下载 `JMComicReader_Portable.zip`
+2. 解压到任意位置
+3. 双击 `JMComicReader.app` 应用
+4. 或运行 `./启动.sh`
+5. 访问 http://localhost:5000
+
+#### Linux 用户
+1. 下载 `JMComicReader_Portable.zip`
+2. 解压到任意位置
+3. 运行 `chmod +x 启动.sh && ./启动.sh`
+4. 访问 http://localhost:5000
+
+> 💡 **提示**: 首次运行会自动安装所有依赖，无需手动配置。
+
+---
+
+### 📌 方式二：普通部署（开发环境）
 
 #### 1. 克隆项目
 
@@ -75,6 +103,23 @@ python backend/app.py
 ```
 
 首次运行会自动创建数据库。
+
+---
+
+### 📌 方式三：构建便携包
+
+#### Windows
+```cmd
+package.bat
+```
+
+#### macOS/Linux
+```bash
+chmod +x package.sh
+./package.sh
+```
+
+打包完成后，`dist/JMComicReader_Portable/` 文件夹即为可分发的一键启动包。
 
 ---
 
@@ -152,11 +197,20 @@ JMComicReaderProject/
 │       ├── detail.html      # 详情页
 │       ├── downloaded.html  # 已下载页
 │       └── reader.html      # 阅读页
-├── DownloadedComics/         # 已下载漫画存储（普通部署时自动生成）
-├── TempCache/               # 临时缓存（普通部署时自动生成）
+├── build/                    # 打包配置
+│   ├── jm_reader.spec       # PyInstaller配置
+│   └── build.py            # 打包脚本
+├── DownloadedComics/         # 已下载漫画存储（自动生成）
+├── TempCache/               # 临时缓存（自动生成）
 ├── requirements.txt         # Python依赖
 ├── start.py                # 启动脚本（Linux/Mac）
 ├── start.bat               # 启动脚本（Windows）
+├── 启动.bat                 # 一键启动脚本（Windows）
+├── 启动.sh                  # 一键启动脚本（macOS/Linux）
+├── install_deps.py         # 依赖安装脚本
+├── package.bat             # 打包脚本（Windows）
+├── package.sh              # 打包脚本（macOS/Linux）
+├── 一键启动包使用说明.md     # 便携包使用文档
 └── README.md              # 项目说明
 ```
 
