@@ -244,9 +244,18 @@ function navigateTo(page) {
     window.location.href = page;
 }
 
+// 返回首页
+function goHome() {
+    window.location.href = '/';
+}
+
 // 返回上一页
 function goBack() {
-    window.history.back();
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        window.location.href = '/';
+    }
 }
 
 // 格式化数字

@@ -13,27 +13,67 @@ from datetime import datetime
 import asyncio
 import threading
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Determine paths
+IS_FROZEN = getattr(sys, 'frozen', False)
+
+if IS_FROZEN:
+    # Running in PyInstaller bundle
+    # Executable directory (User data, Config, Output)
+    EXEC_DIR = os.path.dirname(sys.executable)
+    # Bundle directory (Code, Templates, Static - inside _internal)
+    BUNDLE_DIR = getattr(sys, '_MEIPASS', EXEC_DIR)
+else:
+    # Running from source
+    EXEC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    BUNDLE_DIR = EXEC_DIR
+
+# PROJECT_ROOT used for code imports and resources
+PROJECT_ROOT = BUNDLE_DIR
+
+# BASE_DIR used for user data (Downloads, Cache, Config)
+BASE_DIR = os.environ.get("BASE_DIR", EXEC_DIR)
+
 TEMP_CACHE_DIR = os.environ.get(
-    "TEMP_CACHE_DIR", os.path.join(PROJECT_ROOT, "TempCache")
+    "TEMP_CACHE_DIR", os.path.join(BASE_DIR, "TempCache")
 )
 DOWNLOAD_DIR = os.environ.get(
-    "DOWNLOAD_DIR", os.path.join(PROJECT_ROOT, "DownloadedComics")
+    "DOWNLOAD_DIR", os.path.join(BASE_DIR, "DownloadedComics")
 )
-BASE_DIR = os.environ.get("BASE_DIR", PROJECT_ROOT)
 
 # 添加后端模块路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+if IS_FROZEN:
+     sys.path.append(PROJECT_ROOT)
 
-from services.jm_crawler import JMCrawler
-from services.download_manager import DownloadManager
-from services.comic_manager import ComicManager
-from models.database import init_database
+try:
+    from services.jm_crawler import JMCrawler
+    from services.download_manager import DownloadManager
+    from services.comic_manager import ComicManager
+    from models.database import init_database
+except ImportError:
+    # Fallback for when running in PyInstaller but imports fail
+    # Try importing from backend package if available
+    try:
+        from backend.services.jm_crawler import JMCrawler
+        from backend.services.download_manager import DownloadManager
+        from backend.services.comic_manager import ComicManager
+        from backend.models.database import init_database
+    except ImportError:
+         # Last resort: try adding the parent directory to path
+         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+         from services.jm_crawler import JMCrawler
+         from services.download_manager import DownloadManager
+         from services.comic_manager import ComicManager
+         from models.database import init_database
+
+# Determine absolute paths for frontend assets
+template_dir = os.path.join(PROJECT_ROOT, "frontend", "templates")
+static_dir = os.path.join(PROJECT_ROOT, "frontend", "static")
 
 app = Flask(
     __name__,
-    template_folder="../frontend/templates",
-    static_folder="../frontend/static",
+    template_folder=template_dir,
+    static_folder=static_dir,
 )
 
 CORS(app)

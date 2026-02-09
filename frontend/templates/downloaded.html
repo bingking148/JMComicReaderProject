@@ -3,281 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>已下载漫画 - JM漫画阅读器</title>
+    <title>本地书架 - JM Reader</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <!-- 头部 -->
-        <div class="header">
-            <h1>我的书架</h1>
-            <p>管理和阅读您已下载的漫画</p>
-        </div>
-
-        <!-- 工具栏 -->
-        <div class="search-container">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-md);">
-                <button class="btn btn-secondary back-btn">返回首页</button>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-book-open"></i> JM Reader
+                </div>
+                <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-category">浏览</div>
+                <a href="/" class="nav-item">
+                    <i class="fas fa-home"></i> 发现
+                </a>
+                <a href="/search" class="nav-item">
+                    <i class="fas fa-search"></i> 搜索
+                </a>
                 
-                <div style="display: flex; align-items: center; gap: var(--space-md);">
-                    <input type="text" id="searchInput" class="search-input" placeholder="搜索已下载的漫画..." style="width: 200px;">
-                    <button id="refreshBtn" class="btn btn-primary">刷新</button>
-                    <button id="cleanupBtn" class="btn btn-danger">清理缓存</button>
+                <div class="nav-category" style="margin-top: 24px;">书库</div>
+                <a href="/downloaded" class="nav-item active">
+                    <i class="fas fa-bookmark"></i> 本地书架
+                </a>
+                <a href="#" class="nav-item" onclick="showCacheStatus()">
+                    <i class="fas fa-database"></i> 系统维护
+                </a>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div style="font-size: 12px; color: var(--text-tertiary);">
+                    v2.0.0
                 </div>
             </div>
-        </div>
-
-        <!-- 统计信息 -->
-        <div class="stats-container" style="background: var(--bg-secondary); padding: var(--space-xl); border-radius: var(--radius-lg); margin-bottom: var(--space-xl); box-shadow: var(--shadow-md); border: 1px solid var(--border-light);">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-xl);">
-                <div style="text-align: center;">
-                    <div style="font-size: 2.5rem; font-weight: bold; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;" id="totalCount">0</div>
-                    <div style="color: var(--text-secondary); margin-top: var(--space-xs);">总漫画数</div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-wrapper">
+            <header class="top-header">
+                <div class="page-title">本地书架</div>
+                <div class="header-actions">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="localSearch" class="search-input" placeholder="筛选已下载...">
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadDownloadedComics()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="btn btn-danger" onclick="cleanupCache()">
+                        <i class="fas fa-trash"></i> 清理
+                    </button>
                 </div>
-                <div style="text-align: center;">
-                    <div style="font-size: 2.5rem; font-weight: bold; background: var(--secondary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;" id="totalPages">0</div>
-                    <div style="color: var(--text-secondary); margin-top: var(--space-xs);">总页数</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="font-size: 2.5rem; font-weight: bold; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;" id="totalSize">0</div>
-                    <div style="color: var(--text-secondary); margin-top: var(--space-xs);">占用空间(MB)</div>
+            </header>
+            
+            <div class="content-area">
+                <div class="container">
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">总藏书量</div>
+                            <div class="stat-value" id="totalCount">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">总页数</div>
+                            <div class="stat-value" id="totalPages">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">占用空间</div>
+                            <div class="stat-value" id="totalSize">-</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-bottom: 24px; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        全部漫画
+                        <span style="font-size: 13px; color: var(--text-tertiary); font-weight: 400;" id="resultCount">加载中...</span>
+                    </h3>
+                    
+                    <!-- Grid -->
+                    <div id="comicGrid" class="grid">
+                        <!-- Dynamic Content -->
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="emptyState" class="empty-state" style="display: none;">
+                        <div class="empty-icon">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <h3>书架空空如也</h3>
+                        <p style="margin-bottom: 24px;">您还没有下载任何漫画，快去发现精彩内容吧！</p>
+                        <a href="/" class="btn btn-primary">去发现</a>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <!-- 漫画列表 -->
-        <div id="comicGrid" class="comic-grid">
-            <!-- 动态加载已下载漫画 -->
-        </div>
-
-        <!-- 无结果提示 -->
-        <div id="noResults" style="text-align: center; padding: 60px; display: none;">
-            <div style="font-size: 4em; margin-bottom: 20px;">📚</div>
-            <h3>还没有下载任何漫画</h3>
-            <p>去首页搜索并下载您喜欢的漫画吧！</p>
-            <button class="btn btn-primary" onclick="navigateTo('/')" style="margin-top: 20px;">去首页</button>
-        </div>
+        </main>
     </div>
-
-    <!-- 确认删除模态框 -->
-    <div id="deleteModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeDeleteModal()">&times;</span>
-            <h3>🗑️ 确认删除</h3>
-            <p id="deleteMessage">确定要删除这部漫画吗？删除后不可恢复。</p>
-            <div style="text-align: center; margin-top: 20px;">
-                <button id="confirmDeleteBtn" class="btn btn-danger">确认删除</button>
-                <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
-            </div>
-        </div>
-    </div>
-
+    
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        let downloadedComics = [];
-        let filteredComics = [];
-        let currentDeleteId = null;
+        let allComics = [];
 
-        // 加载已下载漫画列表
+        document.addEventListener('DOMContentLoaded', loadDownloadedComics);
+
+        // Filter functionality
+        document.getElementById('localSearch').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            const filtered = allComics.filter(c => 
+                (c.title || '').toLowerCase().includes(term) || 
+                (c.author || '').toLowerCase().includes(term)
+            );
+            renderComics(filtered);
+        });
+
         async function loadDownloadedComics() {
             try {
-                console.log('开始加载已下载漫画列表');
+                const grid = document.getElementById('comicGrid');
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary);">正在加载书架...</div>';
                 
-                const loadingDiv = showLoading(document.getElementById('comicGrid'));
+                const comics = await apiRequest('/api/downloaded');
+                allComics = comics;
                 
-                const comics = await apiRequest(`/api/downloaded`);
-                
-                console.log('获取到已下载漫画:', comics);
-                
-                hideLoading(loadingDiv);
-                
-                downloadedComics = comics;
-                filteredComics = [...comics];
-                
-                displayDownloadedComics();
-                updateStatistics();
-                
-                if (comics.length === 0) {
-                    console.log('没有已下载的漫画');
-                    document.getElementById('noResults').style.display = 'block';
-                } else {
-                    console.log(`显示 ${comics.length} 部已下载的漫画`);
-                    document.getElementById('noResults').style.display = 'none';
-                }
+                updateStats(comics);
+                renderComics(comics);
                 
             } catch (error) {
-                console.error('加载已下载漫画失败:', error);
-                console.error('错误堆栈:', error.stack);
-                
-                hideLoading(document.querySelector('.loading-container'));
-                showMessage('加载失败: ' + error.message, 'error');
-                
-                // 显示详细错误信息
-                document.getElementById('comicGrid').innerHTML = `
-                    <div class="error-container">
-                        <h3>加载失败</h3>
-                        <p>错误信息: ${error.message}</p>
-                        <details>
-                            <summary>详细错误信息</summary>
-                            <pre>${error.stack}</pre>
-                        </details>
-                        <button class="btn btn-primary" onclick="loadDownloadedComics()" style="margin-top: 10px;">重试</button>
-                    </div>
-                `;
+                console.error(error);
+                alert('加载失败: ' + error.message);
             }
         }
 
-        // 显示已下载漫画
-        function displayDownloadedComics() {
+        function updateStats(comics) {
+            document.getElementById('totalCount').textContent = comics.length;
+            const pages = comics.reduce((sum, c) => sum + (c.pages || 0), 0);
+            document.getElementById('totalPages').textContent = formatNumber(pages);
+            
+            const size = comics.reduce((sum, c) => sum + (c.file_size || 0), 0);
+            document.getElementById('totalSize').textContent = (size / 1024 / 1024).toFixed(1) + ' MB';
+            
+            document.getElementById('resultCount').textContent = `${comics.length} 本`;
+        }
+
+        function renderComics(comics) {
             const grid = document.getElementById('comicGrid');
+            const empty = document.getElementById('emptyState');
+            
             grid.innerHTML = '';
             
-            if (filteredComics.length === 0) {
-                document.getElementById('noResults').style.display = 'block';
+            if (comics.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'flex';
                 return;
             }
             
-            document.getElementById('noResults').style.display = 'none';
+            grid.style.display = 'grid';
+            empty.style.display = 'none';
             
-            filteredComics.forEach(comic => {
-                const comicCard = createDownloadedComicCard(comic);
-                grid.appendChild(comicCard);
+            comics.forEach(comic => {
+                const coverUrl = comic.cover_path ? `/api/cover/downloaded/${comic.id}` : 'https://via.placeholder.com/200x300?text=No+Cover';
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.onclick = () => window.location.href = `/detail/${comic.id}`;
+                
+                card.innerHTML = `
+                    <div class="card-cover-wrapper">
+                        <img src="${coverUrl}" class="card-cover" loading="lazy">
+                        <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: white; font-weight: 500;">
+                            ${comic.pages}P
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-title" title="${comic.title}">${comic.title}</div>
+                        <div class="card-meta">${comic.author || '未知作者'}</div>
+                        <div class="card-footer">
+                            <div style="display: flex; gap: 8px; width: 100%;">
+                                <button class="btn btn-primary" style="flex: 1; height: 32px; font-size: 12px;" onclick="event.stopPropagation(); startReading(${comic.id})">
+                                    阅读
+                                </button>
+                                <button class="btn btn-danger" style="width: 32px; height: 32px; padding: 0;" onclick="event.stopPropagation(); deleteComic(${comic.id})">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
             });
         }
-
-        // 创建已下载漫画卡片
-        function createDownloadedComicCard(comic) {
-            const card = document.createElement('div');
-            card.className = 'comic-card';
-            
-            // 使用新的API端点获取已下载漫画的封面
-            const coverUrl = comic.cover_path ? `/api/cover/downloaded/${comic.id}` : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTQwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1zaXplPSIxNCI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4K';
-            const title = comic.title || '未知标题';
-            const author = comic.author || '未知作者';
-            const pages = comic.pages || 0;
-            const favorites = formatNumber(comic.favorites || 0);
-            const downloadTime = formatTime(comic.download_time);
-            const lastReadTime = comic.last_read_time ? formatTime(comic.last_read_time) : '未阅读';
-            const readProgress = comic.read_progress || 0;
-            
-            card.innerHTML = `
-                <img src="${coverUrl}" alt="${title}" class="comic-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTQwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1zaXplPSIxNCI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4K'">
-                <div class="comic-info">
-                    <div class="comic-title" title="${title}">${title}</div>
-                    <div style="color: #666; font-size: 0.9em; margin-bottom: 8px;">
-                        <div>作者: ${author}</div>
-                        <div>页数: ${pages} 页</div>
-                        <div>收藏: ${favorites}</div>
-                    </div>
-                    <div style="color: #888; font-size: 0.8em; margin-bottom: 10px;">
-                        <div>下载时间: ${downloadTime}</div>
-                        <div>最后阅读: ${lastReadTime}</div>
-                        ${readProgress > 0 ? `<div>阅读进度: ${readProgress} 页</div>` : ''}
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 10px;">
-                        <button class="btn btn-primary" onclick="event.stopPropagation(); startReading(${comic.id})" style="flex: 1; padding: 8px;">
-                            📖 阅读
-                        </button>
-                        <button class="btn btn-danger" onclick="event.stopPropagation(); showDeleteConfirm(${comic.id}, '${title}')" style="padding: 8px 12px;">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            return card;
-        }
-
-        // 更新统计信息
-        function updateStatistics() {
-            const totalCount = downloadedComics.length;
-            const totalPages = downloadedComics.reduce((sum, comic) => sum + (comic.pages || 0), 0);
-            
-            document.getElementById('totalCount').textContent = totalCount;
-            document.getElementById('totalPages').textContent = totalPages;
-            
-            // 计算总大小（使用真实的file_size）
-            const totalSize = downloadedComics.reduce((sum, comic) => sum + (comic.file_size || 0), 0);
-            const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
-            document.getElementById('totalSize').textContent = totalSizeMB;
-        }
-
-        // 搜索功能
-        function searchComics() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-            
-            if (!searchTerm) {
-                filteredComics = [...downloadedComics];
-            } else {
-                filteredComics = downloadedComics.filter(comic => {
-                    const title = (comic.title || '').toLowerCase();
-                    const author = (comic.author || '').toLowerCase();
-                    const tags = (comic.tags || []).join(' ').toLowerCase();
-                    
-                    return title.includes(searchTerm) || 
-                           author.includes(searchTerm) || 
-                           tags.includes(searchTerm);
-                });
-            }
-            
-            displayDownloadedComics();
-        }
-
-        // 显示删除确认
-        function showDeleteConfirm(jmId, title) {
-            currentDeleteId = jmId;
-            document.getElementById('deleteMessage').textContent = `确定要删除《${title}》吗？删除后不可恢复。`;
-            document.getElementById('deleteModal').style.display = 'block';
-        }
-
-        // 关闭删除确认
-        function closeDeleteModal() {
-            document.getElementById('deleteModal').style.display = 'none';
-            currentDeleteId = null;
-        }
-
-        // 确认删除
-        document.getElementById('confirmDeleteBtn').addEventListener('click', async function() {
-            if (currentDeleteId) {
-                await deleteComic(currentDeleteId);
-                closeDeleteModal();
-            }
-        });
-
-        // 清理缓存
+        
         async function cleanupCache() {
-            if (!confirm('确定要清理缓存吗？这将删除所有临时文件但保留已下载的漫画。')) {
-                return;
-            }
-            
-            try {
-                showMessage('缓存清理功能开发中...', 'info');
-            } catch (error) {
-                showMessage('清理缓存失败: ' + error.message, 'error');
-            }
-        }
-
-        // 事件监听器
-        document.addEventListener('DOMContentLoaded', function() {
-            // 搜索输入框
-            const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('input', debounce(searchComics, 300));
-            
-            // 刷新按钮
-            document.getElementById('refreshBtn').addEventListener('click', loadDownloadedComics);
-            
-            // 清理缓存按钮
-            document.getElementById('cleanupBtn').addEventListener('click', cleanupCache);
-            
-            // 加载漫画列表
-            loadDownloadedComics();
-        });
-
-        // 点击模态框外部关闭
-        window.onclick = function(event) {
-            const modal = document.getElementById('deleteModal');
-            if (event.target == modal) {
-                closeDeleteModal();
+            if(confirm('确定要清理缓存文件吗？这不会删除已下载的漫画。')) {
+                try {
+                    const res = await apiRequest('/api/cache/clear', {method: 'POST'});
+                    alert(`清理完成，释放空间 ${res.cleared_size_mb} MB`);
+                } catch(e) {
+                    alert('清理失败');
+                }
             }
         }
     </script>
