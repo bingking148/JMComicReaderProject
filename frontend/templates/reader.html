@@ -2,643 +2,452 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>漫画阅读 - JM漫画阅读器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>阅读 - JM Reader</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .reader-container {
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-            min-height: 100vh;
-            padding: var(--space-lg) 0;
-            position: relative;
-            overflow-x: hidden;
+        /* Reader Specific Styles */
+        /* Floating Controls */
+        .floating-controls {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            padding: 12px 24px; border-radius: 50px; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+            display: flex; align-items: center; gap: 20px; z-index: 200; pointer-events: auto;
+            border: 1px solid rgba(0,0,0,0.1); transition: opacity 0.3s, transform 0.3s;
+        }
+        .floating-controls.hidden {
+            opacity: 0; transform: translateX(-50%) translateY(20px); pointer-events: none;
+        }
+        .page-slider {
+            width: 200px; height: 4px; -webkit-appearance: none; background: #e2e8f0; border-radius: 2px; outline: none;
+        }
+        .page-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--primary-color); cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
-        .reader-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
-            pointer-events: none;
+        /* Image Container */
+        #readerViewport {
+            width: 100%; height: 100vh; overflow-y: auto; overflow-x: hidden;
+            background-color: #1a1a1a; display: flex; align-items: flex-start; justify-content: center;
         }
         
-        .reader-toolbar {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(20px);
-            padding: var(--space-lg);
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--space-xl);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: var(--space-md);
-            box-shadow: var(--shadow-lg);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            position: relative;
-            z-index: 10;
+        #imageContainer {
+            display: flex; justify-content: center; align-items: flex-start; gap: 0;
+            padding: 60px 0 100px; box-sizing: border-box; min-height: 100%;
+            transition: opacity 0.2s ease;
         }
         
-        .reader-title {
-            color: white;
-            font-size: 1.25rem;
-            font-weight: 600;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            flex: 1;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        .comic-image {
+            display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         
-        .reader-controls {
-            display: flex;
-            gap: var(--space-sm);
-            align-items: center;
-            flex-wrap: wrap;
+        /* Layout Modes */
+        .mode-single .comic-image {
+            max-width: 100%; height: auto;
         }
         
-        .reader-content {
-            text-align: center;
-            margin: var(--space-xl) 0;
-            min-height: 60vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            z-index: 5;
+        .mode-double .comic-image {
+            max-height: 95vh; width: auto; max-width: 50vw;
         }
         
-        .reader-page {
-            max-width: 90%;
-            max-height: 80vh;
-            box-shadow: var(--shadow-xl);
-            border-radius: var(--radius-lg);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Fit Modes */
+        .fit-height .comic-image {
+            max-height: 100vh; width: auto;
         }
         
-        .reader-page:hover {
-            transform: scale(1.02);
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+        .fit-width .comic-image {
+            width: 100%; height: auto;
         }
         
-        .page-info {
-            color: white;
-            text-align: center;
-            margin: var(--space-lg) 0;
-            font-size: 1.1rem;
-            font-weight: 500;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-        
-        .navigation-controls {
-            display: flex;
-            justify-content: center;
-            gap: var(--space-lg);
-            margin: var(--space-lg) 0;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        
-        .page-input-container {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            color: white;
-        }
-        
-        .chapter-selector {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            color: white;
-        }
-        
-        .chapter-select {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: var(--radius-md);
-            padding: var(--space-sm) var(--space-md);
-            font-size: 0.9rem;
-            min-width: 120px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .chapter-select option {
-            background: #1a1a2e;
-            color: white;
-        }
-        
-        .page-input {
-            width: 60px;
-            padding: var(--space-sm);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: var(--radius-md);
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-        
-        .zoom-controls {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            color: white;
-        }
-        
-        .zoom-level {
-            min-width: 60px;
-            text-align: center;
-            color: #8ab4f8;
-            font-weight: 500;
-        }
-        
-        .loading-container {
-            color: white;
-            text-align: center;
-            padding: var(--space-2xl);
-        }
-        
-        .error-container {
-            color: #f093fb;
-            text-align: center;
-            padding: var(--space-2xl);
-        }
-        
-        .keyboard-shortcuts {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(20px);
-            color: white;
-            padding: var(--space-lg);
-            border-radius: var(--radius-lg);
-            margin-top: var(--space-lg);
-            font-size: 0.9rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: var(--shadow-md);
-        }
-        
-        .keyboard-shortcuts h4 {
-            margin-bottom: var(--space-md);
-            color: #8ab4f8;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-        
-        .shortcut-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: var(--space-xs);
-            padding: var(--space-xs) 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .shortcut-key {
-            background: rgba(255, 255, 255, 0.1);
-            padding: var(--space-xs) var(--space-sm);
-            border-radius: var(--radius-sm);
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            color: #8ab4f8;
-            backdrop-filter: blur(10px);
-        }
-        
+        /* Mobile Specific */
         @media (max-width: 768px) {
-            .reader-toolbar {
-                flex-direction: column;
-                text-align: center;
-                gap: var(--space-md);
+            /* Revert to container scroll for better control and compatibility */
+            /* Ensure the viewport handles scrolling, not the body */
+            #readerViewport { 
+                padding: 0;
+                height: 100vh !important; /* Full screen height */
+                overflow-y: scroll !important; /* Always show scrollbar track to prevent jitter, enable scroll */
+                overflow-x: hidden !important;
+                display: block !important; /* Simple block layout for scrolling container */
+                -webkit-overflow-scrolling: touch; /* iOS smooth scroll */
+                touch-action: pan-y !important; /* Allow vertical scroll */
+                position: relative;
+                z-index: 1; /* Ensure it's above background */
             }
             
-            .reader-title {
-                text-align: center;
-                font-size: 1.1rem;
+            /* Reset body/html to ensure no conflict with container scroll */
+            body, html {
+                overflow: hidden !important;
+                height: 100% !important;
+                position: fixed; /* Lock body to prevent background scroll */
+                width: 100%;
             }
-            
-            .navigation-controls {
+
+            .app-layout {
+                height: 100% !important;
+                overflow: hidden !important;
+            }
+
+            #imageContainer {
+                padding-top: 60px; /* Header space */
+                padding-bottom: 100px; /* Controls space */
+                min-height: 101%; /* Ensure at least slightly scrollable to trigger behaviors */
+                display: flex;
                 flex-direction: column;
+                justify-content: flex-start;
                 align-items: center;
-                gap: var(--space-md);
+                width: 100%;
             }
-            
-            .reader-page {
-                max-width: 95%;
-                max-height: 70vh;
-            }
-            
-            .reader-controls {
-                justify-content: center;
-            }
+            .page-slider { width: 120px; }
+            .floating-controls { bottom: 20px; padding: 8px 16px; gap: 12px; }
+            /* Mobile Default: Let JS handle classes, but ensure defaults are sane */
+            .mode-single .comic-image { max-width: 100%; }
         }
     </style>
 </head>
-<body>
-    <div class="container reader-container">
-        <!-- 工具栏 -->
-        <div class="reader-toolbar">
-            <div class="reader-title" id="comicTitle">加载中...</div>
-            <div class="reader-controls">
-                <div class="chapter-selector" id="chapterSelector" style="display: none;">
-                    <span>章节</span>
-                    <select id="chapterSelect" class="chapter-select" onchange="changeChapter()">
-                        <option value="">加载中...</option>
-                    </select>
+<body style="background-color: #1a1a1a; margin: 0;">
+    <div class="app-layout">
+        <!-- Top Header -->
+        <header class="top-header" id="readerHeader" style="position: fixed; top: 0; width: 100%; z-index: 200; transition: transform 0.3s; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);">
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="page-title" id="comicTitle" style="margin-left: 10px; font-size: 14px; max-width: 200px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">...</div>
+            </div>
+            
+            <div class="header-actions">
+                <select id="chapterSelect" class="search-input" style="width: auto; height: 32px;" onchange="changeChapter()">
+                    <option value="">章节...</option>
+                </select>
+                <div id="desktopControls">
+                    <button class="btn btn-secondary" onclick="toggleFitMode()" id="fitBtn" title="切换显示模式">
+                        <i class="fas fa-expand"></i>
+                    </button>
                 </div>
-                <button class="btn btn-secondary back-btn">返回</button>
-                <button class="btn btn-primary" onclick="toggleFullscreen()">全屏</button>
-                <button class="btn btn-secondary" onclick="toggleShortcuts()">快捷键</button>
+            </div>
+        </header>
+        
+        <!-- Viewport -->
+        <div id="readerViewport" onclick="handleViewportClick(event)">
+            <div id="imageContainer" class="mode-single">
+                <!-- Images injected here -->
             </div>
         </div>
-
-        <!-- 阅读内容 -->
-        <div class="reader-content" id="readerContent">
-            <div class="loading-container">
-                <div class="loading"></div>
-                <p>正在加载漫画...</p>
-            </div>
-        </div>
-
-        <!-- 页面信息 -->
-        <div class="page-info" id="pageInfo">
-            <span id="chapterInfo" style="display: none;">第 <span id="currentChapter">1</span> 章 - </span>
-            第 <span id="currentPage">0</span> / <span id="totalPages">0</span> 页
-        </div>
-
-        <!-- 导航控制 -->
-        <div class="navigation-controls">
-            <button class="btn btn-primary" onclick="previousPage()">⬅️ 上一页</button>
-            
-            <div class="page-input-container">
-                <span>跳转到</span>
-                <input type="number" id="pageInput" class="page-input" min="1" max="1" value="1">
-                <span>页</span>
-                <button class="btn btn-secondary" onclick="goToPage()">跳转</button>
-            </div>
-            
-            <button class="btn btn-primary" onclick="nextPage()">下一页 ➡️</button>
-        </div>
-
-        <!-- 缩放控制 -->
-        <div class="navigation-controls">
-            <div class="zoom-controls">
-                <button class="btn btn-secondary" onclick="zoomOut()">🔍- 缩小</button>
-                <span class="zoom-level" id="zoomLevel">100%</span>
-                <button class="btn btn-secondary" onclick="zoomIn()">🔍+ 放大</button>
-                <button class="btn btn-secondary" onclick="resetZoom()">🔄 重置</button>
-            </div>
-        </div>
-
-        <!-- 快捷键提示 -->
-        <div id="shortcutsPanel" class="keyboard-shortcuts" style="display: none;">
-            <h4>⌨️ 快捷键</h4>
-            <div class="shortcut-item">
-                <span>上一页</span>
-                <span class="shortcut-key">←</span>
-            </div>
-            <div class="shortcut-item">
-                <span>下一页</span>
-                <span class="shortcut-key">→</span>
-            </div>
-            <div class="shortcut-item">
-                <span>放大</span>
-                <span class="shortcut-key">+</span>
-            </div>
-            <div class="shortcut-item">
-                <span>缩小</span>
-                <span class="shortcut-key">-</span>
-            </div>
-            <div class="shortcut-item">
-                <span>全屏</span>
-                <span class="shortcut-key">F</span>
-            </div>
-            <div class="shortcut-item">
-                <span>返回</span>
-                <span class="shortcut-key">ESC</span>
-            </div>
+        
+        <!-- Bottom Controls -->
+        <div class="floating-controls" id="readerControls">
+            <button class="btn btn-ghost" onclick="prevPageAction()">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span style="font-size: 13px; font-weight: 600; min-width: 30px; text-align: center;" id="currentPageNum">1</span>
+            <input type="range" min="1" max="100" value="1" class="page-slider" id="pageSlider" oninput="handleSliderInput(this.value)" onchange="goToPage(this.value)">
+            <span style="font-size: 13px; color: var(--text-secondary); min-width: 30px; text-align: center;" id="totalPageNum">--</span>
+            <button class="btn btn-ghost" onclick="nextPageAction()">
+                <i class="fas fa-chevron-right"></i>
+            </button>
         </div>
     </div>
-
+    
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
         const jmId = {{ jm_id }};
-        let currentPage = 1;
-        let totalPages = 1;
-        let currentChapter = '1';
-        let currentChapterIndex = 0;
-        let chapters = [];
-        let currentZoom = 100;
-        let comicData = null;
+        const isMobile = window.innerWidth <= 768;
+        
+        let state = {
+            currentPage: 1,
+            totalPages: 1,
+            chapterId: '',
+            chapters: [],
+            layout: 'single', // 'single' or 'double'
+            viewMode: isMobile ? 'width' : 'height', // 'width' (fill width) or 'height' (fit screen)
+            pagesInView: 1 // 1 or 2
+        };
 
-        // 初始化阅读器
-        async function initReader() {
+        document.addEventListener('DOMContentLoaded', init);
+        window.addEventListener('resize', () => {
+            if(state.layout === 'double' && window.innerWidth <= 768) {
+                // Force reload if resizing to mobile
+                location.reload(); 
+            }
+        });
+        
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowLeft') prevPageAction();
+            if(e.key === 'ArrowRight') nextPageAction();
+            if(e.key === ' ') toggleUI();
+        });
+
+        async function init() {
+            if(!isMobile) document.getElementById('desktopControls').style.display = 'block';
+            
             try {
-                console.log(`初始化阅读器，漫画ID: ${jmId}`);
-                
-                // 修复：使用相对路径，移除API_BASE_URL前缀
                 const comic = await apiRequest(`/api/read/${jmId}`);
-                comicData = comic;
+                document.getElementById('comicTitle').textContent = comic.title;
+                state.chapters = comic.chapters || [];
+                state.totalPages = comic.current_chapter_pages;
+                state.chapterId = comic.current_chapter;
                 
-                console.log('获取到漫画数据:', comic);
-                
-                if (!comic || !comic.chapters || comic.chapters.length === 0) {
-                    throw new Error('无法获取漫画章节信息');
-                }
-                
-                chapters = comic.chapters;
-                totalPages = comic.current_chapter_pages;
-                currentChapter = comic.current_chapter;
-                currentChapterIndex = comic.chapters.findIndex(ch => ch.id === comic.current_chapter);
-                
-                console.log(`章节信息: 总数=${chapters.length}, 当前=${currentChapter}, 页数=${totalPages}`);
-                
-                // 更新标题
-                document.getElementById('comicTitle').textContent = comic.title || `JM-${jmId}`;
-                
-                // 显示章节选择器（如果有多个章节）
-                if (chapters.length > 1) {
-                    console.log('显示章节选择器');
-                    displayChapterSelector();
-                }
-                
-                // 更新页面信息
-                updatePageInfo();
-                
-                // 加载第一页
-                console.log('加载第一页');
-                await loadPage(1);
-                
-            } catch (error) {
-                console.error('初始化阅读器失败:', error);
-                console.error('错误堆栈:', error.stack);
-                
-                document.getElementById('readerContent').innerHTML = `
-                    <div class="error-container">
-                        <div style="font-size: 4em; margin-bottom: 20px;">😔</div>
-                        <h3>加载失败</h3>
-                        <p>错误信息: ${error.message}</p>
-                        <p>漫画ID: ${jmId}</p>
-                        <details>
-                            <summary>详细错误信息</summary>
-                            <pre>${error.stack}</pre>
-                        </details>
-                        <button class="btn btn-primary" onclick="goBack()" style="margin-top: 20px;">返回</button>
-                    </div>
-                `;
+                setupChapterSelect();
+                updateUI();
+                loadPageSmart(1);
+            } catch(e) {
+                alert('初始化失败');
             }
         }
-
-        // 显示章节选择器
-        function displayChapterSelector() {
-            const selector = document.getElementById('chapterSelector');
+        
+        function setupChapterSelect() {
             const select = document.getElementById('chapterSelect');
-            
-            selector.style.display = 'flex';
             select.innerHTML = '';
+            state.chapters.forEach(ch => {
+                const opt = document.createElement('option');
+                opt.value = ch.id;
+                opt.textContent = ch.name || `第 ${ch.id} 章`;
+                opt.selected = ch.id == state.chapterId;
+                select.appendChild(opt);
+            });
+            if(state.chapters.length <= 1) select.style.display = 'none';
+        }
+
+        async function changeChapter() {
+            const newCh = document.getElementById('chapterSelect').value;
+            if(newCh === state.chapterId) return;
             
-            chapters.forEach((chapter, index) => {
-                const option = document.createElement('option');
-                option.value = chapter.id;
-                option.textContent = chapter.name;
-                option.selected = chapter.id === currentChapter;
-                select.appendChild(option);
+            try {
+                const data = await apiRequest(`/api/read/${jmId}/chapter/${newCh}`);
+                state.chapterId = newCh;
+                state.totalPages = data.current_chapter_pages;
+                loadPageSmart(1);
+            } catch(e) {}
+        }
+
+        // Core Loading Logic
+        async function loadPageSmart(page) {
+            if(page < 1 || page > state.totalPages) return;
+            
+            state.currentPage = page;
+            updateUI();
+            
+            const container = document.getElementById('imageContainer');
+            container.style.opacity = '0.5';
+            
+            // Construct URL
+            const getUrl = (p) => `/api/comic/${jmId}/page/${p}${state.chapterId ? '?chapter=' + state.chapterId : ''}`;
+            
+            // Load Primary Image
+            const img1 = await loadImage(getUrl(page));
+            
+            // Decision Logic
+            let renderMode = 'single';
+            let secondPage = null;
+            
+            if (!isMobile) {
+                // Desktop: Check for Double Page opportunity
+                const isPortrait = img1.naturalHeight > img1.naturalWidth;
+                
+                if (isPortrait && page < state.totalPages) {
+                    // Try to peek next page
+                    const img2 = await loadImage(getUrl(page + 1));
+                    const isNextPortrait = img2.naturalHeight > img2.naturalWidth;
+                    
+                    if (isNextPortrait) {
+                        renderMode = 'double';
+                        secondPage = img2;
+                    }
+                }
+            }
+            
+            // Render
+            container.innerHTML = '';
+            container.className = `mode-${renderMode}`;
+            
+            if (renderMode === 'double') {
+                state.pagesInView = 2;
+                img1.className = 'comic-image';
+                secondPage.className = 'comic-image';
+                container.appendChild(img1);
+                container.appendChild(secondPage);
+            } else {
+                state.pagesInView = 1;
+                img1.className = 'comic-image';
+                
+                // Mobile specific layout handling
+                if (isMobile) {
+                    if(state.viewMode === 'width') {
+                        img1.style.width = '100%';
+                        img1.style.height = 'auto';
+                        img1.style.maxWidth = 'none';
+                    } else {
+                        img1.style.width = 'auto';
+                        img1.style.height = '100%';
+                        img1.style.maxHeight = '100vh';
+                        img1.style.maxWidth = '100%';
+                        // Center horizontally for height mode
+                        img1.style.margin = '0 auto';
+                    }
+                } else {
+                    applyDesktopFit(img1);
+                }
+                container.appendChild(img1);
+            }
+            
+            container.style.opacity = '1';
+            document.getElementById('readerViewport').scrollTop = 0;
+        }
+        
+        function loadImage(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = src;
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(img); // Handle error gracefully?
             });
         }
-
-        // 切换章节
-        async function changeChapter() {
-            const select = document.getElementById('chapterSelect');
-            const newChapterId = select.value;
+        
+        function applyDesktopFit(img) {
+            img.classList.remove('fit-height', 'fit-width');
+            if(state.viewMode === 'height') img.classList.add('fit-height');
+            else img.classList.add('fit-width');
+        }
+        
+        function toggleFitMode() {
+            state.viewMode = state.viewMode === 'height' ? 'width' : 'height';
+            const imgs = document.querySelectorAll('.comic-image');
+            imgs.forEach(img => applyDesktopFit(img));
             
-            if (newChapterId === currentChapter) return;
-            
-            try {
-                // 修复：使用相对路径，移除API_BASE_URL前缀
-                const data = await apiRequest(`/api/read/${jmId}/chapter/${newChapterId}`);
-                
-                currentChapter = newChapterId;
-                currentChapterIndex = data.chapters.findIndex(ch => ch.id === newChapterId);
-                totalPages = data.current_chapter_pages;
-                currentPage = 1;
-                
-                updatePageInfo();
-                await loadPage(1);
-            } catch (error) {
-                showMessage('切换章节失败: ' + error.message, 'error');
-            }
+            const btn = document.getElementById('fitBtn');
+            btn.innerHTML = state.viewMode === 'height' ? '<i class="fas fa-expand"></i>' : '<i class="fas fa-compress"></i>';
         }
 
-        // 加载页面
-        async function loadPage(pageNum) {
-            if (pageNum < 1 || pageNum > totalPages) return;
+        // Navigation
+        function prevPageAction() {
+            // If in double mode, we might want to jump back 2 pages?
+            // Simple logic: Go to current - 1 (or -2 if we want strict pairs)
+            // Let's use strict pairs logic if we were in double mode
+            let target = state.currentPage - (state.layout === 'double' ? 2 : 1);
+            // Fallback for better UX: just go back 1, loadPageSmart will handle layout re-check
+            // Actually, if we are at [3,4], going to 2. loadPageSmart(2) will see 2 is portrait, 3 is portrait -> [2,3].
+            // This creates [2,3] offset.
+            // To maintain [1,2], [3,4] alignment, we should step by 2 if possible?
+            // Let's stick to simple -1 for now, as dynamic pairing is more robust for mixed content.
+            // User requested "Right Click -> Next".
             
-            currentPage = pageNum;
-            updatePageInfo();
+            // Correction: Previous page is LEFT click.
+            if(state.currentPage > 1) loadPageSmart(state.currentPage - (state.layout === 'double' ? 2 : 1)); 
+            // Better: just -1, let the user navigate freely. 
+            // But if user is at [3,4], hitting prev (-1) loads [2,3].
+            // If they want [1,2], they hit prev again.
+            // It's acceptable.
             
-            try {
-                console.log(`加载页面: ${pageNum}/${totalPages}, 章节: ${currentChapter}`);
-                
-                // 显示加载动画
-                document.getElementById('readerContent').innerHTML = `
-                    <div class="loading-container">
-                        <div class="loading"></div>
-                        <p>正在加载第 ${pageNum} 页...</p>
-                    </div>
-                `;
-                
-                // 修复：使用正确的页面URL格式
-                const pageUrl = `/api/comic/${jmId}/page/${pageNum}${currentChapter ? '?chapter=' + currentChapter : ''}`;
-                console.log(`页面URL: ${pageUrl}`);
-                
-                // 创建图片元素
-                const img = document.createElement('img');
-                img.src = pageUrl;
-                img.className = 'reader-page';
-                img.style.transform = `scale(${currentZoom / 100})`;
-                img.alt = `第 ${pageNum} 页`;
-                
-                // 图片加载完成后的处理
-                img.onload = function() {
-                    console.log(`页面 ${pageNum} 加载成功`);
-                    document.getElementById('readerContent').innerHTML = '';
-                    document.getElementById('readerContent').appendChild(img);
-                };
-                
-                img.onerror = function() {
-                    console.error(`页面 ${pageNum} 加载失败, URL: ${pageUrl}`);
-                    // 如果真实图片加载失败，显示占位图
-                    this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjEyMDAiIHZpZXdCb3g9IjAgMCA4MDAgMTIwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwMCIgaGVpZ2h0PSIxMjAwIiBmaWxsPSIjRjBGMEYwIi8+Cjx0ZXh0IHg9IjQwMCIgeT0iNjAwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1zaXplPSI0OCI+5Zu+54mH5Yqg6L295aSx6LSlPC90ZXh0Pgo8L3N2Zz4K';
-                };
-                
-            } catch (error) {
-                console.error('加载页面失败:', error);
-                console.error('错误堆栈:', error.stack);
-                document.getElementById('readerContent').innerHTML = `
-                    <div class="error-container">
-                        <p>加载第 ${pageNum} 页失败</p>
-                        <p>错误信息: ${error.message}</p>
-                        <details>
-                            <summary>详细错误信息</summary>
-                            <pre>${error.stack}</pre>
-                        </details>
-                        <button class="btn btn-secondary" onclick="loadPage(${pageNum})" style="margin-top: 10px;">重试</button>
-                    </div>
-                `;
-            }
-        }
-
-        // 更新页面信息
-        function updatePageInfo() {
-            document.getElementById('currentPage').textContent = currentPage;
-            document.getElementById('totalPages').textContent = totalPages;
-            
-            // 更新章节信息
-            if (chapters.length > 1) {
-                document.getElementById('chapterInfo').style.display = 'inline';
-                document.getElementById('currentChapter').textContent = currentChapterIndex + 1;
-            }
-            
-            // 更新输入框
-            const pageInput = document.getElementById('pageInput');
-            pageInput.value = currentPage;
-            pageInput.max = totalPages;
-            pageInput.min = 1;
-        }
-
-        // 上一页
-        function previousPage() {
-            if (currentPage > 1) {
-                loadPage(currentPage - 1);
-            }
-        }
-
-        // 下一页
-        function nextPage() {
-            if (currentPage < totalPages) {
-                loadPage(currentPage + 1);
-            }
-        }
-
-        // 跳转到指定页
-        function goToPage() {
-            const pageInput = document.getElementById('pageInput');
-            const targetPage = parseInt(pageInput.value);
-            
-            if (targetPage >= 1 && targetPage <= totalPages) {
-                loadPage(targetPage);
+            // Wait, for "Desktop Double", jumping by 2 is standard.
+            if(state.pagesInView === 2) {
+                 if(state.currentPage > 2) loadPageSmart(state.currentPage - 2);
+                 else if(state.currentPage > 1) loadPageSmart(1);
             } else {
-                showMessage('页码超出范围', 'warning');
-                pageInput.value = currentPage;
+                 if(state.currentPage > 1) loadPageSmart(state.currentPage - 1);
             }
         }
-
-        // 放大
-        function zoomIn() {
-            if (currentZoom < 200) {
-                currentZoom += 10;
-                applyZoom();
+        
+        function nextPageAction() {
+            if(state.currentPage + state.pagesInView <= state.totalPages + 1) { // +1 tolerance
+                 loadPageSmart(state.currentPage + state.pagesInView);
             }
         }
-
-        // 缩小
-        function zoomOut() {
-            if (currentZoom > 50) {
-                currentZoom -= 10;
-                applyZoom();
-            }
+        
+        function goToPage(val) {
+            loadPageSmart(parseInt(val));
         }
-
-        // 重置缩放
-        function resetZoom() {
-            currentZoom = 100;
-            applyZoom();
+        
+        // UI Helpers
+        function handleSliderInput(val) {
+            document.getElementById('currentPageNum').textContent = val;
         }
-
-        // 应用缩放
-        function applyZoom() {
-            const img = document.querySelector('.reader-page');
-            if (img) {
-                img.style.transform = `scale(${currentZoom / 100})`;
-            }
-            document.getElementById('zoomLevel').textContent = currentZoom + '%';
+        
+        function updateUI() {
+            document.getElementById('currentPageNum').textContent = state.currentPage;
+            document.getElementById('totalPageNum').textContent = state.totalPages;
+            const slider = document.getElementById('pageSlider');
+            slider.max = state.totalPages;
+            slider.value = state.currentPage;
         }
-
-        // 切换全屏
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
+        
+        let uiVisible = true;
+        let touchStartTime = 0;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        
+        function toggleUI() {
+            uiVisible = !uiVisible;
+            const header = document.getElementById('readerHeader');
+            const controls = document.getElementById('readerControls');
+            if(uiVisible) {
+                header.style.transform = 'translateY(0)';
+                controls.classList.remove('hidden');
             } else {
-                document.exitFullscreen();
+                header.style.transform = 'translateY(-100%)';
+                controls.classList.add('hidden');
             }
         }
-
-        // 切换快捷键面板
-        function toggleShortcuts() {
-            const panel = document.getElementById('shortcutsPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        
+        function handleViewportClick(e) {
+            // Check if it was a drag/scroll interaction (simple check)
+            // But 'click' event fires after mouseup/touchend if not canceled.
+            // Browser usually suppresses 'click' if dragged significantly.
+            
+            // Logic:
+            // 1. Get click position relative to viewport width
+            // 2. Left 30% -> Prev
+            // 3. Right 30% -> Next
+            // 4. Center 40% -> Toggle UI
+            
+            const width = window.innerWidth;
+            const x = e.clientX;
+            
+            // If click was on UI controls, ignore (bubbling)
+            if(e.target.closest('.floating-controls') || e.target.closest('.top-header')) return;
+            
+            if(x < width * 0.3) {
+                prevPageAction();
+            } else if(x > width * 0.7) {
+                nextPageAction();
+            } else {
+                toggleUI();
+            }
         }
-
-        // 键盘事件处理
-        document.addEventListener('keydown', function(e) {
-            switch(e.key) {
-                case 'ArrowLeft':
-                    e.preventDefault();
-                    previousPage();
-                    break;
-                case 'ArrowRight':
-                    e.preventDefault();
-                    nextPage();
-                    break;
-                case '+':
-                case '=':
-                    e.preventDefault();
-                    zoomIn();
-                    break;
-                case '-':
-                case '_':
-                    e.preventDefault();
-                    zoomOut();
-                    break;
-                case 'f':
-                case 'F':
-                    e.preventDefault();
-                    toggleFullscreen();
-                    break;
-                case 'Escape':
-                    if (document.fullscreenElement) {
-                        e.preventDefault();
-                        document.exitFullscreen();
-                    } else {
-                        goBack();
-                    }
-                    break;
-            }
-        });
-
-        // 点击页面切换
-        document.addEventListener('click', function(e) {
-            // 如果点击的是阅读区域，切换到下一页
-            if (e.target.classList.contains('reader-content') || e.target.classList.contains('reader-page')) {
-                const rect = e.target.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                const midX = rect.width / 2;
-                
-                if (clickX < midX) {
-                    previousPage();
-                } else {
-                    nextPage();
-                }
-            }
-        });
-
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            initReader();
+        
+        // Enhance touch handling to prevent accidental clicks during scroll
+        const viewport = document.getElementById('readerViewport');
+        
+        viewport.addEventListener('touchstart', (e) => {
+            touchStartTime = Date.now();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, {passive: true});
+        
+        viewport.addEventListener('touchend', (e) => {
+            const touchEndTime = Date.now();
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            
+            const diffX = Math.abs(touchEndX - touchStartX);
+            const diffY = Math.abs(touchEndY - touchStartY);
+            const timeDiff = touchEndTime - touchStartTime;
+            
+            // If moved significantly, it's a scroll/swipe, not a tap
+            if(diffX > 10 || diffY > 10) return;
+            
+            // If held too long, maybe text selection? 
+            if(timeDiff > 500) return;
+            
+            // It's a tap. Dispatch logic manually if needed, or rely on 'click'.
+            // Mobile browsers fire 'click' 300ms later or immediately if meta viewport set correctly.
+            // Since we use 'click' handler, we don't need to do anything here if browser handles scroll suppression correctly.
+            // However, the issue "page not scrollable" was due to overlay blocking pointer events.
+            // Now overlay is gone, native scroll should work.
+            // 'click' event will NOT fire if user scrolled.
         });
     </script>
 </body>

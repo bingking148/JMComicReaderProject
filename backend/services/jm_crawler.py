@@ -13,7 +13,9 @@ import requests
 from PIL import Image
 import io
 import json
-
+import re
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 
 class JMCrawler:
     """JM漫画爬虫服务（优化版）"""
@@ -28,7 +30,15 @@ class JMCrawler:
         self.temp_cache = os.environ.get(
             "TEMP_CACHE_DIR", os.path.join(self.base_dir, "TempCache")
         )
-        self.option_file = os.path.join(self.base_dir, "backend", "jm_option.yml")
+        
+        # 优先查找根目录下的配置文件，方便用户修改
+        root_option_file = os.path.join(self.base_dir, "jm_option.yml")
+        backend_option_file = os.path.join(self.base_dir, "backend", "jm_option.yml")
+        
+        if os.path.exists(root_option_file):
+            self.option_file = root_option_file
+        else:
+            self.option_file = backend_option_file
 
         # 确保目录存在
         os.makedirs(self.temp_cache, exist_ok=True)
@@ -42,6 +52,36 @@ class JMCrawler:
         # 封面缓存
         self.cover_cache_file = os.path.join(self.temp_cache, "cover_cache.json")
         self.cover_cache = self._load_cover_cache()
+
+    def _parse_count(self, value) -> int:
+        if value is None:
+            return 0
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, (int, float)):
+            return int(value)
+
+        s = str(value).strip()
+        if not s:
+            return 0
+
+        s = s.replace(",", "").replace(" ", "").lower()
+        m = re.search(r"(\d+(?:\.\d+)?)(亿|万|k|m|b|w)?", s)
+        if not m:
+            return 0
+
+        num = float(m.group(1))
+        unit = m.group(2) or ""
+        multiplier = {
+            "w": 10_000,
+            "k": 1_000,
+            "m": 1_000_000,
+            "b": 1_000_000_000,
+            "万": 10_000,
+            "亿": 100_000_000,
+        }.get(unit, 1)
+
+        return int(num * multiplier)
 
     def _create_option_file(self):
         """创建JM爬虫配置文件"""
@@ -136,7 +176,7 @@ class JMCrawler:
                 "cover": "",  # 初始为空，后面尝试获取
                 "tags": getattr(album, "tags", []),
                 "description": getattr(album, "description", ""),
-                "favorites": getattr(album, "likes", 0),
+                "favorites": self._parse_count(getattr(album, "likes", 0)),
                 "pages": getattr(album, "page_count", 0),
                 "scramble_id": getattr(album, "scramble_id", ""),
                 "works": getattr(album, "works", []),
@@ -171,33 +211,53 @@ class JMCrawler:
         # 缓存未命中，获取封面
         try:
             print(f"获取封面 {album_id}（缓存未命中）")
-            # 获取照片详情
+            # 获取客户端以获取最新域名
             option = jmcomic.create_option_by_file(self.option_file)
             client = option.build_jm_client()
-            photo_detail = client.get_photo_detail(album_id)
+            
+            # 获取域名列表
+            domain_list = client.domain_list
+            domain = domain_list[0] if domain_list else "www.cdnhth.club"
+            
+            # 构建封面URL
+            # 使用 albums 路径，这是真正的封面，通常未混淆
+            cover_url = f"https://{domain}/media/albums/{album_id}.jpg"
+            
+            # 保存到缓存
+            self.cover_cache[cache_key] = cover_url
+            self._save_cover_cache()
 
-            if (
-                photo_detail
-                and hasattr(photo_detail, "page_arr")
-                and photo_detail.page_arr
-            ):
-                first_page = photo_detail.page_arr[0]
-                if isinstance(first_page, str) and first_page:
-                    # 构建完整URL
-                    domain = getattr(
-                        photo_detail, "data_original_domain", "www.cdnhth.club"
-                    )
-                    cover_url = f"https://{domain}/media/photos/{album_id}/{first_page}"
-
-                    # 保存到缓存
-                    self.cover_cache[cache_key] = cover_url
-                    self._save_cover_cache()
-
-                    return cover_url
+            return cover_url
         except Exception as e:
             print(f"获取封面URL失败 {album_id}: {e}")
 
         return ""
+
+    def _fetch_detail_worker(self, client, comic_info):
+        """线程工作函数：获取单个漫画详情"""
+        try:
+            aid = comic_info.get("id")
+            if not aid:
+                return
+
+            detail = client.get_album_detail(aid)
+            if detail:
+                # 更新收藏数
+                if hasattr(detail, "likes"):
+                    comic_info["favorites"] = self._parse_count(detail.likes)
+                # 顺便更新其他可能缺失的信息
+                if hasattr(detail, "views"):
+                    comic_info["views"] = self._parse_count(detail.views)
+                if hasattr(detail, "author") and (
+                    not comic_info.get("author") or comic_info["author"] == "未知作者"
+                ):
+                    comic_info["author"] = str(detail.author)
+                # 更新标签
+                if hasattr(detail, "tags") and detail.tags:
+                    comic_info["tags"] = list(detail.tags)[:5]
+        except Exception:
+            # 获取详情失败不影响整体流程
+            pass
 
     def search_by_keyword(self, keyword: str, sort_order: str = "desc") -> List[Dict]:
         """
@@ -211,6 +271,10 @@ class JMCrawler:
             漫画列表（封面延迟加载）
         """
         try:
+            sort_order = (sort_order or "desc").strip().lower()
+            if sort_order not in ("asc", "desc"):
+                sort_order = "desc"
+
             # 使用JMComic客户端搜索
             option = jmcomic.create_option_by_file(self.option_file)
             client = option.build_jm_client()
@@ -273,6 +337,18 @@ class JMCrawler:
 
                         # 确保info_dict是字典
                         if isinstance(info_dict, dict):
+                            favorites_raw = 0
+                            for k in (
+                                "favorites",
+                                "likes",
+                                "like",
+                                "favourites",
+                                "favorite",
+                                "fav",
+                            ):
+                                if k in info_dict and info_dict[k] is not None:
+                                    favorites_raw = info_dict[k]
+                                    break
                             # 从info_dict提取信息（不立即获取封面）
                             comic_info = {
                                 "id": int(album_id)
@@ -281,7 +357,7 @@ class JMCrawler:
                                 "title": info_dict.get("name", "未知标题"),
                                 "author": info_dict.get("author", "未知作者"),
                                 "cover": "",  # 空字符串，表示需要延迟加载
-                                "favorites": info_dict.get("likes", 0) or 0,
+                                "favorites": self._parse_count(favorites_raw),
                                 "tags": info_dict.get("tags", [])[:5],
                                 "description": (info_dict.get("description") or "")[
                                     :100
@@ -291,6 +367,11 @@ class JMCrawler:
                         else:
                             continue
                     elif hasattr(album, "__dict__"):
+                        favorites_raw = (
+                            getattr(album, "favorites", None)
+                            if getattr(album, "favorites", None) is not None
+                            else getattr(album, "likes", 0)
+                        )
                         # 对象格式
                         comic_info = {
                             "id": getattr(album, "id", 0),
@@ -298,8 +379,7 @@ class JMCrawler:
                             or getattr(album, "name", "未知标题"),
                             "author": getattr(album, "author", "未知作者"),
                             "cover": "",
-                            "favorites": getattr(album, "favorites", 0)
-                            or getattr(album, "likes", 0),
+                            "favorites": self._parse_count(favorites_raw),
                             "tags": getattr(album, "tags", [])[:5]
                             if hasattr(album, "tags")
                             else [],
@@ -309,13 +389,25 @@ class JMCrawler:
                             "needs_cover": True,
                         }
                     elif isinstance(album, dict):
+                        favorites_raw = 0
+                        for k in (
+                            "favorites",
+                            "likes",
+                            "like",
+                            "favourites",
+                            "favorite",
+                            "fav",
+                        ):
+                            if k in album and album[k] is not None:
+                                favorites_raw = album[k]
+                                break
                         # 直接是字典格式
                         comic_info = {
                             "id": album.get("id", 0),
                             "title": album.get("name", album.get("title", "未知标题")),
                             "author": album.get("author", "未知作者"),
                             "cover": "",
-                            "favorites": album.get("favorites", album.get("likes", 0)),
+                            "favorites": self._parse_count(favorites_raw),
                             "tags": album.get("tags", [])[:5],
                             "description": (album.get("description") or "")[:100],
                             "needs_cover": True,
@@ -329,8 +421,21 @@ class JMCrawler:
                     print(f"处理专辑信息失败: {e}, album: {album}")
                     continue
 
+            # 并发获取详情以补充收藏数（因为搜索列表不包含收藏数）
+            if comics:
+                print(f"正在并发获取 {len(comics)} 个结果的详细信息...")
+                with ThreadPoolExecutor(max_workers=20) as executor:
+                    futures = [
+                        executor.submit(self._fetch_detail_worker, client, comic)
+                        for comic in comics
+                    ]
+                    concurrent.futures.wait(futures)
+
             # 按收藏量排序
-            comics.sort(key=lambda x: x["favorites"], reverse=(sort_order == "desc"))
+            comics.sort(
+                key=lambda x: self._parse_count(x.get("favorites", 0)),
+                reverse=(sort_order == "desc"),
+            )
 
             return comics
 

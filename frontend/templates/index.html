@@ -3,152 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JM漫画阅读器 - 首页</title>
+    <title>JM Reader - 发现</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <!-- 头部 -->
-        <div class="header">
-            <h1>JM漫画阅读器</h1>
-            <p>专业的漫画管理与阅读平台，为您提供极致的阅读体验</p>
-        </div>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-book-open"></i> JM Reader
+                </div>
+                <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <div class="nav-menu">
+                <div class="nav-category">浏览</div>
+                <a href="/" class="nav-item active">
+                    <i class="fas fa-home"></i> 发现
+                </a>
+                <a href="/search" class="nav-item">
+                    <i class="fas fa-search"></i> 搜索
+                </a>
+                
+                <div class="nav-category" style="margin-top: 24px;">书库</div>
+                <a href="/downloaded" class="nav-item">
+                    <i class="fas fa-bookmark"></i> 本地书架
+                </a>
+                <a href="#" class="nav-item" onclick="showCacheStatus()">
+                    <i class="fas fa-database"></i> 系统维护
+                </a>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div style="font-size: 12px; color: var(--text-tertiary);">
+                    v2.0.0
+                </div>
+            </div>
+        </aside>
         
-        <!-- 搜索区域 -->
-        <div class="search-container">
-            <div class="search-box">
-                <input type="text" id="searchInput" class="search-input" placeholder="输入JM号或关键词搜索漫画..." maxlength="100">
-                <button id="searchBtn" class="search-btn">搜索</button>
+        <!-- Main Content -->
+        <main class="main-wrapper">
+            <header class="top-header">
+                <div class="page-title">发现</div>
+                <div class="header-actions">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="globalSearch" class="search-input" placeholder="搜索漫画 ID 或关键词...">
+                    </div>
+                </div>
+            </header>
+            
+            <div class="content-area">
+                <div class="container">
+                    <!-- Welcome Banner -->
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: var(--radius-lg); padding: 40px; color: white; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 12px 0;">欢迎使用 JM Reader</h1>
+                            <p style="font-size: 16px; opacity: 0.9; margin: 0 0 24px 0; max-width: 600px;">专业的本地漫画管理工具，为您提供流畅的阅读体验。</p>
+                            <div style="display: flex; gap: 12px;">
+                                <a href="/search" class="btn" style="background-color: white; color: var(--primary-color);">开始搜索</a>
+                                <a href="/downloaded" class="btn" style="background-color: rgba(255,255,255,0.2); color: white;">我的书架</a>
+                            </div>
+                        </div>
+                        <div style="font-size: 120px; opacity: 0.2; margin-right: 40px;">
+                            <i class="fas fa-compass"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px;">
+                        <div class="card" style="flex-direction: row; padding: 24px; align-items: center;">
+                            <div style="width: 48px; height: 48px; background-color: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-color); font-size: 20px; margin-right: 16px;">
+                                <i class="fas fa-bookmark"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">本地书架</div>
+                                <div style="font-size: 20px; font-weight: 700; color: var(--text-primary);">管理漫画</div>
+                            </div>
+                        </div>
+                        
+                        <div class="card" style="flex-direction: row; padding: 24px; align-items: center;">
+                            <div style="width: 48px; height: 48px; background-color: #fef3c7; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--warning-color); font-size: 20px; margin-right: 16px;">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">高级搜索</div>
+                                <div style="font-size: 20px; font-weight: 700; color: var(--text-primary);">查找资源</div>
+                            </div>
+                        </div>
+                        
+                        <div class="card" style="flex-direction: row; padding: 24px; align-items: center;">
+                            <div style="width: 48px; height: 48px; background-color: #d1fae5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--success-color); font-size: 20px; margin-right: 16px;">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">系统优化</div>
+                                <div style="font-size: 20px; font-weight: 700; color: var(--text-primary);">清理缓存</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent (Placeholder for now as we don't have API for recent) -->
+                    <div style="margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                        <h2 style="font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0;">推荐功能</h2>
+                    </div>
+                    
+                    <div class="grid">
+                        <!-- Function Cards -->
+                        <div class="card" onclick="window.location.href='/search'">
+                            <div style="padding: 32px; text-align: center;">
+                                <i class="fas fa-search" style="font-size: 40px; color: var(--primary-color); margin-bottom: 16px;"></i>
+                                <h3 style="font-size: 18px; margin: 0 0 8px 0;">搜索漫画</h3>
+                                <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">支持 JM 号和关键词搜索</p>
+                            </div>
+                        </div>
+                        
+                        <div class="card" onclick="window.location.href='/downloaded'">
+                            <div style="padding: 32px; text-align: center;">
+                                <i class="fas fa-book-open" style="font-size: 40px; color: var(--success-color); margin-bottom: 16px;"></i>
+                                <h3 style="font-size: 18px; margin: 0 0 8px 0;">本地阅读</h3>
+                                <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">离线阅读已下载的漫画</p>
+                            </div>
+                        </div>
+                        
+                        <div class="card" onclick="showCacheStatus()">
+                            <div style="padding: 32px; text-align: center;">
+                                <i class="fas fa-broom" style="font-size: 40px; color: var(--danger-color); margin-bottom: 16px;"></i>
+                                <h3 style="font-size: 18px; margin: 0 0 8px 0;">清理空间</h3>
+                                <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">管理缓存文件释放空间</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="search-tips">
-                💡 支持JM号精准搜索和关键词模糊搜索
-            </div>
-        </div>
-        
-        <!-- 功能入口 -->
-        <div class="feature-buttons">
-            <div class="feature-card" onclick="navigateTo('/downloaded')">
-                <div class="feature-icon">📚</div>
-                <h3>我的书架</h3>
-                <p>管理已下载的漫画，随时开始阅读</p>
-            </div>
-            <div class="feature-card" onclick="showCacheStatus()">
-                <div class="feature-icon">⚡</div>
-                <h3>系统优化</h3>
-                <p>智能清理缓存，保持最佳性能</p>
-            </div>
-            <div class="feature-card" onclick="showAbout()">
-                <div class="feature-icon">❓</div>
-                <h3>帮助中心</h3>
-                <p>了解功能详情，获取使用指南</p>
-            </div>
-        </div>
-        
-        <!-- 最近搜索 -->
-        <div class="recent-searches" style="display: none;">
-            <h3>最近搜索</h3>
-            <div class="comic-grid" id="recentGrid">
-                <!-- 动态加载最近搜索记录 -->
-            </div>
-        </div>
+        </main>
     </div>
     
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        // 搜索按钮点击
-        document.getElementById('searchBtn').addEventListener('click', function() {
-            const keyword = document.getElementById('searchInput').value.trim();
-            
-            // 判断是JM号还是关键词
-            if (/^\d+$/.test(keyword)) {
-                // 纯数字，跳转到详情页
-                navigateTo(`/detail/${keyword}`);
-            } else if (keyword) {
-                // 关键词，跳转到搜索页
-                navigateTo(`/search?keyword=${encodeURIComponent(keyword)}`);
-            } else {
-                showMessage('请输入搜索内容', 'warning');
-            }
-        });
-
-        // 搜索框回车事件
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        // Global Search Handler
+        document.getElementById('globalSearch').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                document.getElementById('searchBtn').click();
+                const query = this.value.trim();
+                if (query) {
+                    if (/^\d+$/.test(query)) {
+                        window.location.href = `/detail/${query}`;
+                    } else {
+                        window.location.href = `/search?keyword=${encodeURIComponent(query)}`;
+                    }
+                }
             }
         });
-
-        // 显示缓存状态
+        
         async function showCacheStatus() {
             try {
-                // 修复：apiRequest直接返回data，不需要再访问.result.data
                 const status = await apiRequest('/api/cache/status');
+                const msg = `当前缓存大小: ${status.cache_size_mb} MB\n${status.need_cleanup ? '建议清理' : '暂无需清理'}`;
                 
-                // 添加防御性检查，防止undefined访问
-                const cacheSize = status?.cache_size_mb || 0;
-                const needCleanup = status?.need_cleanup || false;
-                
-                const message = `
-                    <div class="modal" style="display: block;">
-                        <div class="modal-content">
-                            <h3>缓存状态</h3>
-                            <p>缓存大小: ${cacheSize} MB</p>
-                            <p>${needCleanup ? '需要清理' : '缓存正常'}</p>
-                            <button class="btn btn-primary" onclick="this.closest('.modal').style.display='none'">关闭</button>
-                            ${needCleanup ? '<button class="btn btn-danger" onclick="clearCache(); this.closest(\'.modal\').style.display=\'none\'">清理缓存</button>' : ''}
-                        </div>
-                    </div>
-                `;
-                
-                document.body.insertAdjacentHTML('beforeend', message);
-            } catch (error) {
-                console.error('获取缓存状态失败:', error);
-                showMessage('获取缓存状态失败: ' + (error.message || '未知错误'), 'error');
+                if(status.need_cleanup) {
+                    if(confirm(msg + '\n是否立即清理？')) {
+                        const res = await apiRequest('/api/cache/clear', { method: 'POST' });
+                        alert(`清理完成，释放 ${res.cleared_size_mb} MB`);
+                    }
+                } else {
+                    alert(msg);
+                }
+            } catch(e) {
+                alert('获取状态失败');
             }
         }
-
-        // 清理缓存
-        async function clearCache() {
-            try {
-                // 修复：apiRequest直接返回data，不需要再检查success
-                const result = await apiRequest('/api/cache/clear', { method: 'POST' });
-                showMessage(`清理成功：${result.cleared_size_mb || 0} MB`, 'success');
-            } catch (error) {
-                console.error('清理缓存失败:', error);
-                showMessage('清理缓存失败: ' + (error.message || '未知错误'), 'error');
-            }
-        }
-
-        // 显示关于
-        function showAbout() {
-            const message = `
-                <div class="modal" style="display: block;">
-                    <div class="modal-content">
-                        <h3>JM漫画阅读器</h3>
-                        <p>完整的JM漫画查找、展示、下载、阅读、管理系统</p>
-                        <h4>主要功能</h4>
-                        <ul style="text-align: left; margin: 20px 0;">
-                            <li>🔍 JM号精准搜索</li>
-                            <li>🔎 关键词模糊搜索</li>
-                            <li>📥 异步下载</li>
-                            <li>📖 在线阅读</li>
-                            <li>🗑️ 漫画管理</li>
-                        </ul>
-                        <h4>技术栈</h4>
-                        <p>Python Flask + JMComic-Crawler-Python</p>
-                        <button class="btn btn-primary" onclick="this.closest('.modal').style.display='none'">关闭</button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.insertAdjacentHTML('beforeend', message);
-        }
-
-        // 页面加载完成后
-        document.addEventListener('DOMContentLoaded', function() {
-            // 可以在这里添加页面初始化逻辑
-            console.log('首页加载完成');
-        });
     </script>
 </body>
 </html>

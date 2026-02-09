@@ -1,362 +1,121 @@
-# 🎨 JM漫画阅读器
+# JMComic Reader
 
-一个完整的JM漫画查找、展示、下载、阅读和管理系统，支持多章节漫画阅读、章节切换和在线预览。
+一个现代化、轻量级的本地 JM 漫画阅读器与下载管理器。提供优雅的 Web 界面，支持搜索、下载、离线阅读以及移动端完美适配。
 
-本项目旨在解决在想看JM本子的时候，由于网络波动而导致加载困难的问题。通过本地下载和缓存机制，让用户即使在不稳定的网络环境下也能流畅阅读漫画，提供稳定、快速的阅读体验。
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.8+-green.svg)
+![Flask](https://img.shields.io/badge/flask-3.0+-orange.svg)
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
-![Flask](https://img.shields.io/badge/Flask-3.0%2B-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+## ✨ 主要功能
 
-## ✨ 功能特性
+###  搜索与发现
+- **双模式搜索**：支持通过 **关键词** 模糊搜索或直接输入 **JM号** 精准直达。
+- **详细信息**：查看漫画的完整元数据，包括作者、标签、简介、章节列表等。
+- **封面预览**：智能缓存封面图片，加载迅速。
 
-### 📚 核心功能
-- **🔍 JM号精准查找** - 输入JM号快速定位漫画
-- **🔎 关键词模糊搜索** - 支持关键词搜索和排序
-- **📥 异步下载** - 支持进度反馈的异步下载功能
-- **📖 在线阅读** - 支持缩放、翻页、键盘快捷键的阅读器
-- **📑 多章节支持** - 自动识别多章节漫画，支持章节切换
-- **📋 漫画管理** - 已下载漫画列表、删除、文件大小统计
-- **📱 响应式设计** - 完美适配桌面和移动设备
+### 📥 下载管理
+- **多线程下载**：后台异步下载，支持断点续传（基于 `jmcomic` 库）。
+- **进度监控**：实时查看下载进度和状态。
+- **本地存储**：下载后的漫画存储在本地，随时随地离线阅读。
 
-### 🎯 特色功能
-- **⚡ 智能章节排序** - 从JM网站自动获取正确章节顺序
-- **🖼️ 封面懒加载** - 高效的封面加载机制
-- **💾 缓存优化** - 智能缓存管理，提升访问速度
-- **🔄 自动重试** - 网络异常自动重试机制
-- **🎨 美观界面** - 现代化深色主题设计
+### � 阅读体验
+- **Web 阅读器**：响应式设计，完美适配 **PC** 和 **手机** 浏览器。
+- **移动端优化**：针对手机端优化的触摸滑动体验，支持沉浸式阅读。
+- **多种模式**：支持单页/双页显示（PC端智能适配）。
 
-## 🛠 技术栈
-
-### 后端
-- **Python 3.8+** - 核心语言
-- **Flask** - Web框架
-- **JMComic-Crawler-Python** - JM漫画爬虫
-- **SQLite** - 轻量级数据库
-- **aiohttp** - 异步HTTP请求
-
-### 前端
-- **HTML5** - 页面结构
-- **CSS3** - 样式设计
-- **JavaScript (ES6+)** - 交互逻辑
-- **响应式设计** - 适配多种设备
-
-## 📦 安装步骤
-
-### 📌 方式一：一键启动包（推荐，最简单）
-
-**无需预装 Python，双击即用！**
-
-#### Windows 用户
-1. 下载 `JMComicReader_Portable.zip`
-2. 解压到任意位置
-3. 双击 `启动.bat` 文件
-4. 系统会自动检测并运行打包好的可执行文件
-5. 访问 http://localhost:5000
-
-> ✅ **完全独立运行**：可执行文件已包含完整 Python 运行时和所有依赖，无需安装任何软件！
-
-#### macOS 用户
-1. 下载 `JMComicReader_Portable.zip`
-2. 解压到任意位置
-3. 双击 `JMComicReader.app` 应用
-4. 或运行 `./启动.sh`
-5. 访问 http://localhost:5000
-
-> ✅ **完全独立运行**：应用包已包含完整 Python 运行时和所有依赖，无需安装任何软件！
-
-#### Linux 用户
-1. 下载 `JMComicReader_Portable.zip`
-2. 解压到任意位置
-3. 运行 `chmod +x 启动.sh && ./启动.sh`
-4. 访问 http://localhost:5000
-
-> ✅ **完全独立运行**：可执行文件已包含完整 Python 运行时和所有依赖，无需安装任何软件！
-
-> 💡 **提示**: 启动脚本会自动检测可执行文件，如果没有则会检查并安装 Python 环境（备用方案）。
+### 🛠️ 系统管理
+- **缓存清理**：内置缓存管理工具，一键释放磁盘空间。
+- **一键启动**：提供打包好的独立运行包，无需安装 Python 环境即可运行。
+- **配置灵活**：支持自定义配置文件 `jm_option.yml`。
 
 ---
 
-### 📌 方式二：普通部署（开发环境）
+## � 快速开始
 
-#### 1. 克隆项目
+### 方式一：使用一键启动包（推荐）
+适用于没有 Python 环境的用户。
 
-```bash
-git clone https://github.com/bingking148/JMComicReaderProject.git
-cd JMComicReaderProject
-```
+1. 下载项目的最新 Release 包（即 `dist/JMComicReader` 文件夹）。
+2. 解压（如果是压缩包）。
+3. 双击运行文件夹内的 **`start.bat`**。
+4. 浏览器会自动打开 `http://localhost:5000`。
+   - 如果手机想看，确保手机和电脑在同一局域网，访问 `http://电脑IP:5000`。
 
-#### 2. 创建虚拟环境（推荐）
+### 方式二：源码运行
+适用于开发者或希望自定义修改的用户。
 
-```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-```
+#### 环境要求
+- Python 3.8+
+- pip
 
-#### 3. 安装依赖
+#### 安装步骤
+1. 克隆仓库：
+   ```bash
+   git clone https://github.com/yourusername/JMComicReader.git
+   cd JMComicReader
+   ```
 
-```bash
-pip install -r requirements.txt
-```
+2. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   # 或者运行安装脚本
+   python install_deps.py
+   ```
 
-#### 4. 初始化数据库
-
-```bash
-python backend/app.py
-```
-
-首次运行会自动创建数据库。
-
----
-
-### 📌 方式三：构建便携包（开发者）
-
-**需要 Python 环境来构建，但生成的启动包无需 Python！**
-
-#### Windows
-```cmd
-package.bat
-```
-
-#### macOS/Linux
-```bash
-chmod +x package.sh
-./package.sh
-```
-
-打包完成后，`dist/JMComicReader_Portable/` 文件夹即为可分发的一键启动包。
-
-> 💡 **说明**: 此步骤需要 Python 3.8+ 环境来运行 PyInstaller，但生成的可执行文件已包含完整 Python 运行时，最终用户无需安装 Python。
+3. 启动项目：
+   Windows 用户直接双击 `start.bat`，或在命令行运行：
+   ```bash
+   python start.py
+   ```
 
 ---
 
-## 🚀 使用说明
-
-### 📌 普通部署使用
-
-#### 启动服务器
-
-**Windows**
-```bash
-start.bat
-```
-
-**Linux/Mac**
-```bash
-python start.py
-```
-
-或者直接运行：
-
-```bash
-python backend/app.py
-```
-
-#### 访问应用
-
-打开浏览器访问：
-- **本地访问**: http://localhost:5000
-- **局域网访问**: http://你的IP:5000
-
----
-
-### 功能使用
-
-#### 1. 搜索漫画
-- **JM号搜索**: 在首页输入JM号进行精准搜索
-- **关键词搜索**: 点击"关键词搜索"，输入关键词进行模糊搜索
-
-#### 2. 下载漫画
-- 搜索到漫画后，点击"下载"按钮
-- 查看下载进度，等待下载完成
-
-#### 3. 阅读漫画
-- 点击"阅读"按钮进入阅读界面
-- 支持缩放、翻页、键盘快捷键操作
-- 多章节漫画可以切换章节
-
-#### 4. 管理已下载漫画
-- 在"已下载"页面查看所有已下载的漫画
-- 可以删除不需要的漫画
-- 查看文件大小和下载时间
-
-## 📁 项目结构
+## � 项目结构
 
 ```
-JMComicReaderProject/
-├── backend/                   # 后端代码
-│   ├── app.py                # Flask主应用
-│   ├── jm_option.yml         # JM爬虫配置
-│   ├── comics.db             # SQLite数据库（首次运行自动生成）
-│   └── services/             # 业务逻辑
-│       ├── jm_crawler.py     # JM漫画爬虫
-│       ├── download_manager.py # 下载管理器
-│       └── comic_manager.py  # 漫画管理器
-├── frontend/                  # 前端代码
-│   ├── static/               # 静态资源
-│   │   ├── css/             # 样式文件
-│   │   │   └── style.css   # 主样式
-│   │   └── js/              # JavaScript文件
-│   │       └── app.js       # 前端核心逻辑
-│   └── templates/            # HTML模板
-│       ├── index.html       # 首页
-│       ├── search.html      # 搜索页
-│       ├── detail.html      # 详情页
-│       ├── downloaded.html  # 已下载页
-│       └── reader.html      # 阅读页
-├── build/                    # 打包配置
-│   ├── jm_reader.spec       # PyInstaller配置（独立可执行文件）
-│   └── build.py            # Python打包脚本
-├── dist/                    # 打包输出目录
-│   └── JMComicReader_Portable/ # 一键启动包
-│       ├── JMComicReader.exe # Windows可执行文件（包含Python）
-│       ├── JMComicReader     # macOS/Linux可执行文件
-│       ├── JMComicReader.app # macOS应用包
-│       ├── 启动.bat         # Windows启动脚本
-│       ├── 启动.sh          # macOS/Linux启动脚本
-│       └── README.txt        # 便携包说明
-├── DownloadedComics/         # 已下载漫画存储（自动生成）
-├── TempCache/               # 临时缓存（自动生成）
-├── requirements.txt         # Python依赖
-├── start.py                # 启动脚本（Linux/Mac）
-├── start.bat               # 启动脚本（Windows）
-├── 启动.bat                 # 一键启动脚本（Windows，优先检测可执行文件）
-├── 启动.sh                  # 一键启动脚本（macOS/Linux，优先检测可执行文件）
-├── install_deps.py         # 依赖安装脚本
-├── package.bat             # 打包脚本（Windows）
-├── package.sh              # 打包脚本（macOS/Linux）
-├── 一键启动包使用说明.md     # 便携包使用文档
-└── README.md              # 项目说明
+JMComicReader/
+├── backend/                # 后端源码 (Flask)
+│   ├── models/             # 数据模型
+│   ├── services/           # 核心服务 (爬虫、下载、管理)
+│   ├── app.py              # Flask 应用入口
+│   └── jm_option.yml       # 默认配置文件
+├── frontend/               # 前端源码
+│   ├── static/             # 静态资源 (CSS, JS)
+│   └── templates/          # HTML 模板
+├── data/                   # 运行时数据 (自动生成)
+│   └── backend/            # 数据库等
+├── DownloadedComics/       # 下载的漫画存储目录
+├── TempCache/              # 临时缓存目录
+├── start.py                # 启动脚本
+├── start.bat               # Windows 启动批处理
+└── requirements.txt        # Python 依赖
 ```
-
-## 📚 API文档
-
-### 搜索相关
-- `GET /api/search/jm/<int:jm_id>` - JM号搜索
-- `GET /api/search/keyword?keyword=<关键词>` - 关键词搜索
-- `GET /api/cover/<int:jm_id>` - 获取封面
-
-### 下载相关
-- `POST /api/download/<int:jm_id>` - 下载漫画
-- `GET /api/download/progress/<download_id>` - 获取下载进度
-
-### 阅读相关
-- `GET /api/read/<int:jm_id>` - 获取章节信息
-- `GET /api/read/<int:jm_id>/chapter/<chapter_id>` - 获取指定章节
-- `GET /api/comic/<int:jm_id>/page/<page_num>?chapter=<chapter_id>` - 获取页面图片
-
-### 管理相关
-- `GET /api/downloaded` - 获取已下载漫画列表
-- `DELETE /api/delete/<int:jm_id>` - 删除漫画
-- `GET /api/cache/status` - 获取缓存状态
-- `POST /api/cache/clear` - 清理缓存
-
-## 🎮 阅读器快捷键
-
-| 按键 | 功能 |
-|------|------|
-| ← / → | 上一页 / 下一页 |
-| + / - | 放大 / 缩小 |
-| F | 全屏 |
-| ESC | 返回 / 退出全屏 |
-
-## 🖼️ 界面展示
-
-### 首页
-现代化设计的首页，支持JM号和关键词搜索。
-
-### 搜索结果
-清晰的搜索结果展示，支持排序。
-
-### 详情页
-完整的漫画信息展示，包括封面、标签、简介等。
-
-### 阅读器
-功能完善的在线阅读器，支持缩放、翻页、章节切换。
 
 ## ⚙️ 配置说明
 
-### JM域名配置
-在 `backend/jm_option.yml` 中配置JM域名：
+在项目根目录（打包版在 `JMComicReader` 文件夹根目录）下的 `jm_option.yml` 文件可配置爬虫参数：
 
 ```yaml
 client:
-  domain:
-    - "www.cdnhth.club"
-    - "www.cdngwc.cc"
-    - "www.cdngwc.net"
-    # 更多域名...
+  domain: [...]       # JM 域名列表，自动更新
+download:
+  threading:
+    max_workers: 5    # 下载并发数
+dir_rule:
+  base_dir: ...       # 下载路径配置（默认无需修改）
 ```
 
-### 端口配置
-在 `backend/app.py` 中修改端口：
+## � 移动端使用
 
-```python
-app.run(debug=True, host="0.0.0.0", port=5000)
-```
+1. 确保电脑和手机连接到同一个 WiFi。
+2. 启动程序后，在控制台可以看到类似 `Running on http://0.0.0.0:5000` 的提示。
+3. 在电脑上打开 CMD，输入 `ipconfig` 查看 IPv4 地址（例如 `192.168.1.5`）。
+4. 在手机浏览器输入 `http://192.168.1.5:5000` 即可访问。
 
-## 🐛 常见问题
+## ⚠️ 免责声明
 
-### 1. 下载失败
-- 检查网络连接
-- 查看日志文件 `logs/app.log`
-- 尝试更换JM域名
-
-### 2. 章节显示不正确
-- 确保漫画已完全下载
-- 清除缓存并重启服务器
-- 检查是否有网络连接（章节顺序需要从JM获取）
-
-### 3. 阅读器加载慢
-- 清理缓存
-- 检查网络连接
-- 确保图片文件完整
-
-## 📝 开发计划
-
-- [ ] 用户系统（收藏、阅读历史）
-- [ ] 漫画推荐
-- [ ] 批量下载
-- [ ] 离线阅读
-- [ ] 移动端APP
-
-## 🤝 贡献指南
-
-欢迎贡献代码！请遵循以下步骤：
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
-
-## ⚠️ 注意事项
-
-本项目仅供学习研究使用，请遵守相关法律法规：
-- 请勿用于商业用途
-- 请尊重原作者版权
-- 请合理使用各项功能
-- 下载的内容请勿用于非法传播
-
-## 📧 联系方式
-
-如有问题或建议，请通过以下方式联系：
-- 提交 Issue
-- 发送邮件: your-email@example.com
-
-## 🙏 致谢
-
-- [JMComic-Crawler-Python](https://github.com/hect0x7/JMComic-Crawler-Python) - 提供JM漫画爬虫支持
-- [Flask](https://flask.palletsprojects.com/) - Web框架
-- 所有贡献者
+本项目仅供学习交流使用，请勿用于非法用途。所有漫画资源均来自网络，本项目不存储任何漫画内容。
 
 ---
 
-**⭐ 如果这个项目对你有帮助，请给它一个星标！**
+**Enjoy Reading!** 📚

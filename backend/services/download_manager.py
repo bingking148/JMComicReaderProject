@@ -19,7 +19,15 @@ import shutil
 # 添加后端模块路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.jm_crawler import JMCrawler
+try:
+    from backend.services.jm_crawler import JMCrawler
+except ImportError:
+    try:
+        from services.jm_crawler import JMCrawler
+    except ImportError:
+        # Fallback for frozen environment or weird path
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        from backend.services.jm_crawler import JMCrawler
 
 
 class DownloadManager:
