@@ -2,27 +2,18 @@ version: '3.8'
 
 services:
   jmcomic-reader:
-    build: .
+    image: bingking148/jmcomic-reader:latest
     container_name: jmcomic-reader
     ports:
       - "5000:5000"
     volumes:
-      # 漫画下载目录（持久化存储）
       - ./data/DownloadedComics:/app/DownloadedComics
-      # 临时缓存目录
       - ./data/TempCache:/app/TempCache
-      # 后端数据目录（数据库和配置）
       - ./data/backend:/app/backend
     environment:
-      - PYTHONUNBUFFERED=1
-      - FLASK_ENV=production
-      - BASE_DIR=/app
-      - DOWNLOAD_DIR=/app/DownloadedComics
-      - TEMP_CACHE_DIR=/app/TempCache
+      PYTHONUNBUFFERED: "1"
+      FLASK_ENV: "production"
+      BASE_DIR: "/app"
+      DOWNLOAD_DIR: "/app/DownloadedComics"
+      TEMP_CACHE_DIR: "/app/TempCache"
     restart: unless-stopped
-    networks:
-      - jmcomic-network
-
-networks:
-  jmcomic-network:
-    driver: bridge
