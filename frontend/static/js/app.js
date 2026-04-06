@@ -403,20 +403,26 @@ function initKeyboardShortcuts() {
 
 // 阅读器快捷键处理
 function handleReaderShortcuts(e) {
+    const invokeReaderAction = (name) => {
+        if (typeof window[name] === 'function') {
+            window[name]();
+        }
+    };
+
     switch(e.key) {
         case 'ArrowLeft':
         case 'a':
             e.preventDefault();
-            previousPage();
+            invokeReaderAction('previousPage');
             break;
         case 'ArrowRight':
         case 'd':
             e.preventDefault();
-            nextPage();
+            invokeReaderAction('nextPage');
             break;
         case 'f':
             e.preventDefault();
-            toggleFullscreen();
+            invokeReaderAction('toggleFullscreen');
             break;
         case 'Escape':
             if (document.fullscreenElement) {
@@ -428,12 +434,12 @@ function handleReaderShortcuts(e) {
         case '+':
         case '=':
             e.preventDefault();
-            zoomIn();
+            invokeReaderAction('zoomIn');
             break;
         case '-':
         case '_':
             e.preventDefault();
-            zoomOut();
+            invokeReaderAction('zoomOut');
             break;
     }
 }

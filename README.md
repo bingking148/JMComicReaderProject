@@ -1,121 +1,134 @@
-# JMComic Reader
+# JMComicReader
 
 一个现代化、轻量级的本地 JM 漫画阅读器与下载管理器。提供优雅的 Web 界面，支持搜索、下载、离线阅读以及移动端完美适配。
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
-![Flask](https://img.shields.io/badge/flask-3.0+-orange.svg)
-
-## ✨ 主要功能
-
-###  搜索与发现
-- **双模式搜索**：支持通过 **关键词** 模糊搜索或直接输入 **JM号** 精准直达。
-- **详细信息**：查看漫画的完整元数据，包括作者、标签、简介、章节列表等。
-- **封面预览**：智能缓存封面图片，加载迅速。
-
-### 📥 下载管理
-- **多线程下载**：后台异步下载，支持断点续传（基于 `jmcomic` 库）。
-- **进度监控**：实时查看下载进度和状态。
-- **本地存储**：下载后的漫画存储在本地，随时随地离线阅读。
-
-### � 阅读体验
-- **Web 阅读器**：响应式设计，完美适配 **PC** 和 **手机** 浏览器。
-- **移动端优化**：针对手机端优化的触摸滑动体验，支持沉浸式阅读。
-- **多种模式**：支持单页/双页显示（PC端智能适配）。
-
-### 🛠️ 系统管理
-- **缓存清理**：内置缓存管理工具，一键释放磁盘空间。
-- **一键启动**：提供打包好的独立运行包，无需安装 Python 环境即可运行。
-- **配置灵活**：支持自定义配置文件 `jm_option.yml`。
+![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 
 ---
 
-## � 快速开始
+## 功能特性
 
-### 方式一：使用一键启动包（推荐）
-适用于没有 Python 环境的用户。
+**搜索与发现**
+- 关键词模糊搜索 + JM号精准直达
+- 漫画详细信息、标签、章节列表
+- 封面智能缓存，加载迅速
 
-1. 下载项目的最新 Release 包（即 `dist/JMComicReader` 文件夹）。
-2. 解压（如果是压缩包）。
-3. 双击运行文件夹内的 **`start.bat`**。
-4. 浏览器会自动打开 `http://localhost:5000`。
-   - 如果手机想看，确保手机和电脑在同一局域网，访问 `http://电脑IP:5000`。
+**下载管理**
+- 多线程异步下载，支持断点续传
+- 实时下载进度监控
+- 本地存储，随时随地离线阅读
+
+**阅读体验**
+- 响应式 Web 阅读器，适配 PC 和手机浏览器
+- 移动端触摸滑动优化，支持沉浸式阅读
+- 单页/双页显示模式
+
+**桌面版**
+- 基于 pywebview 的原生桌面窗口
+- 用户数据自动存储到系统用户目录，更新不丢失
+- 提供 Inno Setup 安装包
+
+---
+
+## 快速开始
+
+### 方式一：安装包运行（推荐）
+
+1. 下载 `dist/JMComicReader-Setup-v1.2.0.exe` 并安装
+2. 启动 JMComicReader，桌面窗口会自动打开
 
 ### 方式二：源码运行
-适用于开发者或希望自定义修改的用户。
 
-#### 环境要求
-- Python 3.8+
-- pip
+**环境要求：** Python 3.8+
 
-#### 安装步骤
-1. 克隆仓库：
-   ```bash
-   git clone https://github.com/yourusername/JMComicReader.git
-   cd JMComicReader
-   ```
+```bash
+git clone https://github.com/yourusername/JMComicReaderProject.git
+cd JMComicReaderProject
 
-2. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   # 或者运行安装脚本
-   python install_deps.py
-   ```
+pip install -r requirements.txt
+python start.py
+```
 
-3. 启动项目：
-   Windows 用户直接双击 `start.bat`，或在命令行运行：
-   ```bash
-   python start.py
-   ```
+启动后浏览器访问 `http://localhost:5000`。
+
+Windows 用户也可以直接双击 `start.bat`。
 
 ---
 
-## � 项目结构
+## 移动端使用
+
+1. 确保手机和电脑连接同一 WiFi
+2. 在电脑 CMD 中输入 `ipconfig` 查看本机 IP（如 `192.168.1.5`）
+3. 手机浏览器访问 `http://192.168.1.5:5000`
+
+---
+
+## 项目结构
 
 ```
-JMComicReader/
-├── backend/                # 后端源码 (Flask)
-│   ├── models/             # 数据模型
-│   ├── services/           # 核心服务 (爬虫、下载、管理)
-│   ├── app.py              # Flask 应用入口
-│   └── jm_option.yml       # 默认配置文件
-├── frontend/               # 前端源码
-│   ├── static/             # 静态资源 (CSS, JS)
-│   └── templates/          # HTML 模板
-├── data/                   # 运行时数据 (自动生成)
-│   └── backend/            # 数据库等
-├── DownloadedComics/       # 下载的漫画存储目录
-├── TempCache/              # 临时缓存目录
-├── start.py                # 启动脚本
-├── start.bat               # Windows 启动批处理
-└── requirements.txt        # Python 依赖
+JMComicReaderProject/
+├── backend/                     # 后端 (Flask)
+│   ├── models/
+│   │   └── database.py          # 数据模型
+│   ├── services/
+│   │   ├── jm_crawler.py        # JM 漫画爬虫
+│   │   ├── download_manager.py  # 下载管理
+│   │   ├── comic_manager.py     # 漫画管理
+│   │   └── cover_cache.py       # 封面缓存
+│   ├── app.py                   # Flask 入口
+│   └── jm_option.yml            # 爬虫配置
+├── frontend/                    # 前端
+│   ├── static/css/              # 样式
+│   ├── static/js/               # 脚本
+│   └── templates/               # HTML 模板
+├── assets/                      # 应用图标
+├── desktop_app.py               # 桌面版入口
+├── start.py                     # Web 模式入口
+├── start.bat                    # Windows 启动脚本
+├── build_desktop.bat            # 构建桌面包
+├── build_installer.bat          # 构建安装包
+├── JMComicReader.spec           # PyInstaller 配置
+├── JMComicReaderInstaller.iss   # Inno Setup 配置
+├── requirements.txt             # Python 依赖
+└── VERSION                      # 版本号
 ```
 
-## ⚙️ 配置说明
+---
 
-在项目根目录（打包版在 `JMComicReader` 文件夹根目录）下的 `jm_option.yml` 文件可配置爬虫参数：
+## 配置说明
+
+编辑 `backend/jm_option.yml` 可自定义爬虫参数：
 
 ```yaml
 client:
-  domain: [...]       # JM 域名列表，自动更新
+  domain: [...]           # JM 域名列表
 download:
   threading:
-    max_workers: 5    # 下载并发数
+    max_workers: 5        # 下载并发数
 dir_rule:
-  base_dir: ...       # 下载路径配置（默认无需修改）
+  base_dir: ...           # 下载路径（默认无需修改）
 ```
-
-## � 移动端使用
-
-1. 确保电脑和手机连接到同一个 WiFi。
-2. 启动程序后，在控制台可以看到类似 `Running on http://0.0.0.0:5000` 的提示。
-3. 在电脑上打开 CMD，输入 `ipconfig` 查看 IPv4 地址（例如 `192.168.1.5`）。
-4. 在手机浏览器输入 `http://192.168.1.5:5000` 即可访问。
-
-## ⚠️ 免责声明
-
-本项目仅供学习交流使用，请勿用于非法用途。所有漫画资源均来自网络，本项目不存储任何漫画内容。
 
 ---
 
-**Enjoy Reading!** 📚
+## 从源码构建安装包
+
+需要安装 [Inno Setup 6](https://jrsoftware.org/isinfo.php)。
+
+```bash
+# 构建桌面版 exe
+build_desktop.bat
+
+# 构建安装包（包含上一步）
+build_installer.bat
+```
+
+产物输出到 `dist/` 目录。
+
+---
+
+## 免责声明
+
+本项目仅供学习交流使用，请勿用于非法用途。所有漫画资源均来自网络，本项目不存储任何漫画内容。
