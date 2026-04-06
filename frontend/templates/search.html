@@ -9,7 +9,6 @@
 </head>
 <body>
     <div class="app-layout">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="brand">
                 <div style="display: flex; align-items: center;">
@@ -19,7 +18,7 @@
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
-            
+
             <div class="nav-menu">
                 <div class="nav-category">浏览</div>
                 <a href="/" class="nav-item">
@@ -28,7 +27,7 @@
                 <a href="/search" class="nav-item active">
                     <i class="fas fa-search"></i> 搜索
                 </a>
-                
+
                 <div class="nav-category" style="margin-top: 24px;">书库</div>
                 <a href="/downloaded" class="nav-item">
                     <i class="fas fa-bookmark"></i> 本地书架
@@ -37,193 +36,408 @@
                     <i class="fas fa-database"></i> 系统维护
                 </a>
             </div>
-            
+
             <div class="sidebar-footer">
                 <div style="font-size: 12px; color: var(--text-tertiary);">
-                    v2.0.0
+                    v{{ app_version }}
                 </div>
             </div>
         </aside>
-        
-        <!-- Main Content -->
+
         <main class="main-wrapper">
             <header class="top-header">
                 <div class="page-title">搜索</div>
                 <div class="header-actions">
                     <div class="search-wrapper">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="searchInput" class="search-input" placeholder="关键词..." value="{{ keyword if keyword else '' }}">
+                        <input type="text" id="searchInput" class="search-input" placeholder="输入关键词后按回车搜索">
                     </div>
-                    <select id="sortSelect" class="search-input" style="width: 140px;">
-                        <option value="desc">收藏: 高 → 低</option>
-                        <option value="asc">收藏: 低 → 高</option>
+                    <select id="sortSelect" class="search-input" style="width: 148px;">
+                        <option value="desc">收藏: 高 -> 低</option>
+                        <option value="asc">收藏: 低 -> 高</option>
                     </select>
                 </div>
             </header>
-            
+
             <div class="content-area">
                 <div class="container">
                     <h3 style="margin-bottom: 24px; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
                         搜索结果
                         <span style="font-size: 13px; color: var(--text-tertiary); font-weight: 400;" id="resultCount"></span>
                     </h3>
-                    
-                    <div id="comicGrid" class="grid">
-                        <!-- Dynamic Content -->
-                    </div>
-                    
+
+                    <div id="comicGrid" class="grid"></div>
+
                     <div id="loading" style="text-align: center; padding: 40px; display: none; color: var(--text-secondary);">
                         <i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i>
                         <p style="margin-top: 12px; font-size: 14px;">正在搜索...</p>
                     </div>
-                    
+
                     <div id="loadMore" style="text-align: center; padding: 20px; display: none;">
                         <button class="btn btn-secondary" onclick="loadMore()">加载更多</button>
                     </div>
-                    
-                    <!-- Empty State -->
+
                     <div id="emptyState" class="empty-state" style="display: none;">
                         <div class="empty-icon"><i class="fas fa-search"></i></div>
                         <h3>未找到结果</h3>
-                        <p>尝试更换关键词搜索</p>
+                        <p>试试更换关键词，或多加载几页再看排序。</p>
                     </div>
                 </div>
             </div>
         </main>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        const initialKeyword = "{{ keyword if keyword else '' }}";
+        const detailCache = new Map();
+        const pendingDetailIds = new Set();
+        const ENRICH_BATCH_SIZE = 12;
+
         let currentPage = 1;
-        let currentSort = 'desc';
+        let currentSort = "desc";
+        let currentSearchVersion = 0;
         let isLoading = false;
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            if(initialKeyword) {
+        let renderSequence = 0;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const searchInput = document.getElementById("searchInput");
+            const sortSelect = document.getElementById("sortSelect");
+
+            currentSort = sortSelect.value;
+
+            const initialKeyword = getKeywordFromUrl();
+            if (initialKeyword) {
+                searchInput.value = initialKeyword;
                 performSearch(initialKeyword);
             } else {
-                document.getElementById('emptyState').style.display = 'flex';
-                document.querySelector('.empty-state h3').textContent = '开始搜索';
-                document.querySelector('.empty-state p').textContent = '输入关键词查找漫画';
+                setEmptyState("开始搜索", "输入关键词查找漫画");
             }
-            
-            document.getElementById('searchInput').addEventListener('keypress', (e) => {
-                if(e.key === 'Enter') {
-                    const val = e.target.value.trim();
-                    if(val) {
-                        // Update URL without reload
-                        history.pushState({}, '', `/search?keyword=${encodeURIComponent(val)}`);
-                        currentPage = 1;
-                        performSearch(val);
-                    }
+
+            searchInput.addEventListener("keydown", (event) => {
+                if (event.key !== "Enter") {
+                    return;
                 }
+
+                const keyword = event.target.value.trim();
+                if (!keyword) {
+                    return;
+                }
+
+                startSearch(keyword);
             });
-            
-            document.getElementById('sortSelect').addEventListener('change', (e) => {
-                currentSort = e.target.value;
-                const val = document.getElementById('searchInput').value.trim();
-                if(val) {
-                    currentPage = 1;
-                    performSearch(val);
+
+            sortSelect.addEventListener("change", (event) => {
+                currentSort = event.target.value;
+                sortRenderedResults();
+
+                const keyword = searchInput.value.trim();
+                if (!keyword) {
+                    return;
+                }
+
+                currentPage = 1;
+                performSearch(keyword);
+            });
+
+            window.addEventListener("popstate", () => {
+                const keyword = getKeywordFromUrl();
+                searchInput.value = keyword;
+                currentPage = 1;
+
+                if (keyword) {
+                    performSearch(keyword);
+                } else {
+                    document.getElementById("comicGrid").innerHTML = "";
+                    updateResultCount();
+                    setEmptyState("开始搜索", "输入关键词查找漫画");
                 }
             });
         });
-        
-        async function performSearch(keyword, append = false) {
-            if(isLoading) return;
-            isLoading = true;
-            
-            const grid = document.getElementById('comicGrid');
-            const empty = document.getElementById('emptyState');
-            const loader = document.getElementById('loading');
-            const loadMoreBtn = document.getElementById('loadMore');
-            
-            if(!append) {
-                grid.innerHTML = '';
-                empty.style.display = 'none';
+
+        function getKeywordFromUrl() {
+            return new URLSearchParams(window.location.search).get("keyword")?.trim() || "";
+        }
+
+        function startSearch(keyword) {
+            history.pushState({}, "", `/search?keyword=${encodeURIComponent(keyword)}`);
+            currentPage = 1;
+            performSearch(keyword);
+        }
+
+        function setEmptyState(title, description) {
+            const emptyState = document.getElementById("emptyState");
+            emptyState.style.display = "flex";
+            emptyState.querySelector("h3").textContent = title;
+            emptyState.querySelector("p").textContent = description;
+        }
+
+        function updateResultCount() {
+            const count = document.querySelectorAll("#comicGrid .card").length;
+            document.getElementById("resultCount").textContent = count ? `${count} 个结果` : "";
+        }
+
+        function escapeHtml(value = "") {
+            return String(value).replace(/[&<>"']/g, (char) => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                "\"": "&quot;",
+                "'": "&#39;",
+            }[char]));
+        }
+
+        function renderTags(tags = []) {
+            return tags
+                .slice(0, 2)
+                .map((tag) => `<span>#${escapeHtml(tag)}</span>`)
+                .join("");
+        }
+
+        function chunkArray(items, size) {
+            const batches = [];
+            for (let index = 0; index < items.length; index += size) {
+                batches.push(items.slice(index, index + size));
             }
-            loader.style.display = 'block';
-            loadMoreBtn.style.display = 'none';
-            
-            try {
-                const res = await apiRequest(`/api/search/keyword?keyword=${encodeURIComponent(keyword)}&sort=${currentSort}&page=${currentPage}`);
-                
-                if(res && res.length > 0) {
-                    renderResults(res);
-                    document.getElementById('resultCount').textContent = `${document.querySelectorAll('.card').length} 个结果`;
-                    loadMoreBtn.style.display = 'block';
-                } else {
-                    if(!append) empty.style.display = 'flex';
-                    loadMoreBtn.style.display = 'none';
-                }
-            } catch(e) {
-                console.error(e);
-                alert('搜索出错');
-            } finally {
-                isLoading = false;
-                loader.style.display = 'none';
+            return batches;
+        }
+
+        function setCardFavorites(card, favorites) {
+            const favoriteValue = Number(favorites) || 0;
+            card.dataset.favorites = String(favoriteValue);
+
+            const favoritesEl = card.querySelector("[data-role='favorites']");
+            if (favoritesEl) {
+                favoritesEl.textContent = favoriteValue.toLocaleString("zh-CN");
             }
         }
-        
+
+        function sortRenderedResults() {
+            const grid = document.getElementById("comicGrid");
+            const cards = Array.from(grid.querySelectorAll(".card"));
+
+            cards.sort((cardA, cardB) => {
+                const favoriteA = Number(cardA.dataset.favorites || 0);
+                const favoriteB = Number(cardB.dataset.favorites || 0);
+                const favoriteDiff = favoriteA - favoriteB;
+
+                if (favoriteDiff !== 0) {
+                    return currentSort === "asc" ? favoriteDiff : -favoriteDiff;
+                }
+
+                const sequenceA = Number(cardA.dataset.sequence || 0);
+                const sequenceB = Number(cardB.dataset.sequence || 0);
+                return sequenceA - sequenceB;
+            });
+
+            cards.forEach((card) => grid.appendChild(card));
+        }
+
+        function applyDetailToCard(id, detail) {
+            const card = document.querySelector(`[data-comic-id="${id}"]`);
+            if (!card || !detail) {
+                return;
+            }
+
+            if (detail.favorites !== undefined) {
+                setCardFavorites(card, detail.favorites);
+            }
+
+            const authorEl = card.querySelector("[data-role='author']");
+            if (authorEl && detail.author) {
+                authorEl.textContent = detail.author;
+            }
+
+            const tagsEl = card.querySelector("[data-role='tags']");
+            if (tagsEl && Array.isArray(detail.tags)) {
+                tagsEl.innerHTML = renderTags(detail.tags);
+            }
+        }
+
+        async function performSearch(keyword, append = false) {
+            if (isLoading) {
+                return;
+            }
+
+            const normalizedKeyword = keyword.trim();
+            if (!normalizedKeyword) {
+                return;
+            }
+
+            isLoading = true;
+
+            const grid = document.getElementById("comicGrid");
+            const emptyState = document.getElementById("emptyState");
+            const loading = document.getElementById("loading");
+            const loadMoreBtn = document.getElementById("loadMore");
+
+            const requestVersion = append ? currentSearchVersion : currentSearchVersion + 1;
+            if (!append) {
+                currentSearchVersion = requestVersion;
+                renderSequence = 0;
+                grid.innerHTML = "";
+                emptyState.style.display = "none";
+            }
+
+            loading.style.display = "block";
+            loadMoreBtn.style.display = "none";
+
+            try {
+                const results = await apiRequest(
+                    `/api/search/keyword?keyword=${encodeURIComponent(normalizedKeyword)}&sort=${currentSort}&page=${currentPage}`
+                );
+
+                if (requestVersion !== currentSearchVersion) {
+                    return;
+                }
+
+                if (Array.isArray(results) && results.length > 0) {
+                    const { addedCount, idsToEnrich } = renderResults(results);
+                    sortRenderedResults();
+                    updateResultCount();
+                    lazyLoadCovers();
+                    enrichSearchResults(idsToEnrich, requestVersion);
+
+                    loadMoreBtn.style.display = addedCount > 0 ? "block" : "none";
+                    if (append && addedCount === 0) {
+                        currentPage = Math.max(1, currentPage - 1);
+                    }
+                } else {
+                    if (append) {
+                        currentPage = Math.max(1, currentPage - 1);
+                    } else {
+                        setEmptyState("未找到结果", "试试更换关键词，或多加载几页再看排序。");
+                        updateResultCount();
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                alert("搜索出错，请稍后重试");
+            } finally {
+                isLoading = false;
+                loading.style.display = "none";
+            }
+        }
+
         function renderResults(comics) {
-            const grid = document.getElementById('comicGrid');
-            
-            comics.forEach(comic => {
-                const coverUrl = comic.cover ? `/api/cover/${comic.id}` : 'https://via.placeholder.com/200x300';
-                
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.onclick = () => window.location.href = `/detail/${comic.id}`;
-                
+            const grid = document.getElementById("comicGrid");
+            const idsToEnrich = [];
+            let addedCount = 0;
+
+            comics.forEach((comic) => {
+                const comicId = Number(comic?.id);
+                if (!comicId || grid.querySelector(`[data-comic-id="${comicId}"]`)) {
+                    return;
+                }
+
+                const card = document.createElement("div");
+                card.className = "card";
+                card.dataset.comicId = String(comicId);
+                card.dataset.sequence = String(renderSequence++);
+                card.onclick = () => {
+                    window.location.href = `/detail/${comicId}`;
+                };
+
                 card.innerHTML = `
                     <div class="card-cover-wrapper">
-                        <img src="https://via.placeholder.com/200x300?text=Loading..." data-src="${comic.id}" class="card-cover lazy-cover">
+                        <img src="https://via.placeholder.com/200x300?text=Loading..." data-src="${comicId}" class="card-cover lazy-cover">
                         <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: white; font-weight: 500;">
-                            <i class="fas fa-heart" style="font-size: 10px; margin-right: 4px;"></i>${comic.favorites}
+                            <i class="fas fa-heart" style="font-size: 10px; margin-right: 4px;"></i><span data-role="favorites">0</span>
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="card-title" title="${comic.title}">${comic.title}</div>
-                        <div class="card-meta">${comic.author || '未知作者'}</div>
-                        <div class="card-footer">
-                            ${(comic.tags || []).slice(0, 2).map(tag => `<span>#${tag}</span>`).join('')}
-                        </div>
+                        <div class="card-title" title="${escapeHtml(comic.title || "")}">${escapeHtml(comic.title || "未命名漫画")}</div>
+                        <div class="card-meta" data-role="author">${escapeHtml(comic.author || "未知作者")}</div>
+                        <div class="card-footer" data-role="tags">${renderTags(comic.tags || [])}</div>
                     </div>
                 `;
+
+                setCardFavorites(card, comic.favorites);
                 grid.appendChild(card);
+                addedCount += 1;
+
+                const cachedDetail = detailCache.get(String(comicId));
+                if (cachedDetail) {
+                    applyDetailToCard(comicId, cachedDetail);
+                    return;
+                }
+
+                if (comic.needs_detail) {
+                    idsToEnrich.push(comicId);
+                }
             });
-            
-            lazyLoadCovers();
+
+            return { addedCount, idsToEnrich };
         }
-        
+
         function loadMore() {
-            currentPage++;
-            const val = document.getElementById('searchInput').value.trim();
-            performSearch(val, true);
+            const keyword = document.getElementById("searchInput").value.trim();
+            if (!keyword) {
+                return;
+            }
+
+            currentPage += 1;
+            performSearch(keyword, true);
         }
-        
+
         async function lazyLoadCovers() {
-            const images = document.querySelectorAll('.lazy-cover:not(.loaded)');
-            for(let img of images) {
+            const images = Array.from(document.querySelectorAll(".lazy-cover:not(.loaded)"));
+
+            await Promise.allSettled(images.map(async (img) => {
                 const id = img.dataset.src;
+
                 try {
-                    const res = await fetch(`/api/cover/${id}`);
-                    const data = await res.json();
-                    if(data.success) {
+                    const response = await fetch(`/api/cover/${id}`);
+                    const data = await response.json();
+                    if (data.success) {
                         img.src = data.data.cover;
-                        img.classList.add('loaded');
+                        img.classList.add("loaded");
                     }
-                } catch(e) {}
+                } catch (error) {
+                    console.debug("cover load skipped", id, error);
+                }
+            }));
+        }
+
+        async function enrichSearchResults(ids, requestVersion) {
+            const uniqueIds = [...new Set(ids.filter(Boolean).map((id) => String(id)))];
+            if (uniqueIds.length === 0) {
+                return;
+            }
+
+            const idsToFetch = uniqueIds.filter((id) => !detailCache.has(id) && !pendingDetailIds.has(id));
+            for (const batch of chunkArray(idsToFetch, ENRICH_BATCH_SIZE)) {
+                if (requestVersion !== currentSearchVersion) {
+                    return;
+                }
+
+                batch.forEach((id) => pendingDetailIds.add(id));
+
+                try {
+                    const details = await apiRequest(`/api/search/enrich?ids=${batch.join(",")}`);
+                    if (requestVersion !== currentSearchVersion) {
+                        return;
+                    }
+
+                    Object.entries(details || {}).forEach(([id, detail]) => {
+                        detailCache.set(String(id), detail);
+                        applyDetailToCard(id, detail);
+                    });
+
+                    sortRenderedResults();
+                    updateResultCount();
+                } catch (error) {
+                    console.debug("search enrich skipped", error);
+                } finally {
+                    batch.forEach((id) => pendingDetailIds.delete(id));
+                }
             }
         }
-        
+
         async function showCacheStatus() {
-            // ... (Same reuse logic as other pages)
             try {
-                const status = await apiRequest('/api/cache/status');
+                const status = await apiRequest("/api/cache/status");
                 alert(`缓存大小: ${status.cache_size_mb} MB`);
-            } catch(e) {}
+            } catch (error) {}
         }
     </script>
 </body>

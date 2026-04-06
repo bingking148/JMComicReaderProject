@@ -70,6 +70,21 @@ except ImportError:
 template_dir = os.path.join(PROJECT_ROOT, "frontend", "templates")
 static_dir = os.path.join(PROJECT_ROOT, "frontend", "static")
 
+
+def load_app_version():
+    version_file = os.path.join(PROJECT_ROOT, "VERSION")
+    fallback_version = os.environ.get("APP_VERSION", "0.0.0")
+
+    try:
+        with open(version_file, "r", encoding="utf-8") as f:
+            version = f.read().strip()
+        return version or fallback_version
+    except OSError:
+        return fallback_version
+
+
+APP_VERSION = load_app_version()
+
 app = Flask(
     __name__,
     template_folder=template_dir,
@@ -77,6 +92,11 @@ app = Flask(
 )
 
 CORS(app)
+
+
+@app.context_processor
+def inject_app_version():
+    return {"app_version": APP_VERSION}
 
 # 初始化服务
 jm_crawler = JMCrawler()
@@ -111,15 +131,44 @@ def search_by_keyword():
     """关键词模糊搜索"""
     keyword = request.args.get("keyword", "").strip()
     sort_order = request.args.get("sort", "desc")  # desc or asc
+    page = request.args.get("page", "1").strip()
 
     if not keyword:
         return jsonify({"success": False, "message": "关键词不能为空"})
 
     try:
-        results = jm_crawler.search_by_keyword(keyword, sort_order)
+        page_num = max(1, int(page))
+        results = jm_crawler.search_by_keyword(keyword, sort_order, page=page_num)
         return jsonify({"success": True, "data": results})
     except Exception as e:
         return jsonify({"success": False, "message": f"搜索失败: {str(e)}"})
+
+@app.route("/api/search/enrich")
+def enrich_search_results():
+    """鎵归噺琛ュ厖鎼滅储缁撴灉璇︽儏"""
+    ids_param = request.args.get("ids", "").strip()
+    if not ids_param:
+        return jsonify({"success": False, "message": "缂哄皯 ids 鍙傛暟"})
+
+    album_ids = []
+    for raw_id in ids_param.split(","):
+        raw_id = raw_id.strip()
+        if not raw_id:
+            continue
+        try:
+            album_ids.append(int(raw_id))
+        except ValueError:
+            continue
+
+    album_ids = album_ids[:12]
+    if not album_ids:
+        return jsonify({"success": False, "message": "娌℃湁鍙敤鐨?ids"})
+
+    try:
+        details = jm_crawler.get_search_result_details(album_ids)
+        return jsonify({"success": True, "data": details})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"琛ュ厖璇︽儏澶辫触: {str(e)}"})
 
 
 @app.route("/api/cover/<int:jm_id>")

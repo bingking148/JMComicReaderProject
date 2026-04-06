@@ -18,6 +18,7 @@ ENV/
 /dist/
 /*.exe
 *.spec
+!JMComicReader.spec
 
 # 日志
 logs/

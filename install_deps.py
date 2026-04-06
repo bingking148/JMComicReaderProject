@@ -23,6 +23,7 @@ DEPENDENCIES = [
     "img2pdf>=0.4.4",
     "aiofiles>=23.0.0",
     "aiohttp>=3.9.0",
+    "pywebview>=5.0",
 ]
 
 MIRROR_URLS = [
@@ -155,10 +156,11 @@ def verify_installation():
         "flask_cors": "Flask-CORS",
         "jmcomic": "JMComic",
         "requests": "Requests",
-        "pillow": "Pillow",
+        "PIL": "Pillow",
         "img2pdf": "img2pdf",
         "aiofiles": "aiofiles",
         "aiohttp": "aiohttp",
+        "webview": "pywebview",
     }
     
     for module, name in modules.items():
