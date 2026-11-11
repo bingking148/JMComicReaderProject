@@ -22,6 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _api;
   late final TextEditingController _images;
   late final TextEditingController _dataDir;
+  late final TextEditingController _proxy;
   int? _concurrency;
   String? _note;
   bool _movingData = false;
@@ -29,8 +30,10 @@ class _SettingsPageState extends State<SettingsPage> {
   StorageUse _storage = const StorageUse();
 
   static const _repo = 'https://github.com/bingking148/JMComicReaderProject';
-  static const _issues = 'https://github.com/bingking148/JMComicReaderProject/issues';
-  static const _releases = 'https://github.com/bingking148/JMComicReaderProject/releases';
+  static const _issues =
+      'https://github.com/bingking148/JMComicReaderProject/issues';
+  static const _releases =
+      'https://github.com/bingking148/JMComicReaderProject/releases';
 
   @override
   void initState() {
@@ -38,11 +41,13 @@ class _SettingsPageState extends State<SettingsPage> {
     _api = TextEditingController();
     _images = TextEditingController();
     _dataDir = TextEditingController();
+    _proxy = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = SessionScope.of(context).settings;
       _api.text = settings.apiDomains.join('\n');
       _images.text = settings.imageDomains.join('\n');
       _dataDir.text = settings.dataDir;
+      _proxy.text = settings.httpProxy;
       _refreshStorage();
     });
   }
@@ -52,13 +57,18 @@ class _SettingsPageState extends State<SettingsPage> {
     _api.dispose();
     _images.dispose();
     _dataDir.dispose();
+    _proxy.dispose();
     super.dispose();
   }
 
   bool get _canChooseDataDir => !Platform.isAndroid && !Platform.isIOS;
 
   List<String> _lines(TextEditingController controller) {
-    return controller.text.split(RegExp(r'\s+')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    return controller.text
+        .split(RegExp(r'\s+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
   }
 
   Future<void> _save(Settings next) async {
@@ -96,16 +106,26 @@ class _SettingsPageState extends State<SettingsPage> {
           '只改路径：旧目录原样留下，应用改为使用新目录。',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, 'switch'), child: const Text('只改路径')),
-          TextButton(onPressed: () => Navigator.pop(context, 'move'), child: const Text('移动数据')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'switch'),
+            child: const Text('只改路径'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'move'),
+            child: const Text('移动数据'),
+          ),
         ],
       ),
     );
     if (choice == null || !mounted) return;
     setState(() => _movingData = true);
     try {
-      final saved = await SessionScope.of(context).changeDataDirectory(next, move: choice == 'move');
+      final saved = await SessionScope.of(context)
+          .changeDataDirectory(next, move: choice == 'move');
       if (!mounted) return;
       _dataDir.text = saved;
       setState(() => _note = choice == 'move' ? '数据已移动到新目录' : '已改用新目录，旧目录仍保留');
@@ -138,7 +158,10 @@ class _SettingsPageState extends State<SettingsPage> {
     var opened = false;
     if (Platform.isAndroid) {
       try {
-        opened = await const MethodChannel('jmcomic/engine').invokeMethod<bool>('reveal', {'path': path}) ?? false;
+        opened =
+            await const MethodChannel('jmcomic/engine')
+                .invokeMethod<bool>('reveal', {'path': path}) ??
+            false;
       } catch (_) {}
     }
     if (!mounted || opened) return;
@@ -155,7 +178,10 @@ class _SettingsPageState extends State<SettingsPage> {
             },
             child: const Text('复制路径'),
           ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
         ],
       ),
     );
@@ -175,8 +201,15 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final report = await api.importPath(selected);
       if (!mounted) return;
-      final detail = report.lines.where((line) => line.trim().isNotEmpty).take(4).join('\n');
-      setState(() => _note = detail.isEmpty ? report.summary : '${report.summary}\n$detail');
+      final detail = report.lines
+          .where((line) => line.trim().isNotEmpty)
+          .take(4)
+          .join('\n');
+      setState(
+        () => _note = detail.isEmpty
+            ? report.summary
+            : '${report.summary}\n$detail',
+      );
       await _refreshStorage();
     } on EngineException catch (err) {
       if (!mounted) return;
@@ -206,8 +239,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
     final settings = session.settings;
-    final comicsDir = _storage.comicsDir.isNotEmpty ? _storage.comicsDir : settings.dataDir;
-    final version = settings.productVersion.isEmpty ? '2.0.0' : settings.productVersion;
+    final comicsDir = _storage.comicsDir.isNotEmpty
+        ? _storage.comicsDir
+        : settings.dataDir;
+    final version = settings.productVersion.isEmpty
+        ? '2.2.0'
+        : settings.productVersion;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(28, 22, 28, 48),
@@ -221,10 +258,16 @@ class _SettingsPageState extends State<SettingsPage> {
             style: TextStyle(color: InkColors.mute, height: 1.4),
           ),
           const SizedBox(height: 8),
-          SelectableText(comicsDir, style: const TextStyle(color: InkColors.dim, height: 1.4)),
+          SelectableText(
+            comicsDir,
+            style: const TextStyle(color: InkColors.dim, height: 1.4),
+          ),
           Wrap(
             children: [
-              TextButton(onPressed: () => _reveal(comicsDir), child: Text(_canChooseDataDir ? '打开文件夹' : '查看路径')),
+              TextButton(
+                onPressed: () => _reveal(comicsDir),
+                child: Text(_canChooseDataDir ? '打开文件夹' : '查看路径'),
+              ),
               TextButton(
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: comicsDir));
@@ -236,13 +279,21 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           if (_canChooseDataDir) ...[
             const SizedBox(height: 8),
-            const Text('数据目录包含书架数据库和上面的漫画文件夹。', style: TextStyle(color: InkColors.mute, height: 1.4)),
+            const Text(
+              '数据目录包含书架数据库和上面的漫画文件夹。',
+              style: TextStyle(color: InkColors.mute, height: 1.4),
+            ),
             const SizedBox(height: 8),
-            TextField(controller: _dataDir, decoration: const InputDecoration(hintText: r'D:\JMComicReader')),
+            TextField(
+              controller: _dataDir,
+              decoration: const InputDecoration(hintText: r'D:\JMComicReader'),
+            ),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
-                onPressed: _movingData ? null : () => _changeDataDir(settings.dataDir),
+                onPressed: _movingData
+                    ? null
+                    : () => _changeDataDir(settings.dataDir),
                 child: Text(_movingData ? '正在处理…' : '更改数据目录'),
               ),
             ),
@@ -254,8 +305,14 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           Wrap(
             children: [
-              TextButton(onPressed: _busy ? null : _pickFolder, child: const Text('导入文件夹')),
-              TextButton(onPressed: _busy ? null : _pickArchive, child: const Text('导入 zip / cbz')),
+              TextButton(
+                onPressed: _busy ? null : _pickFolder,
+                child: const Text('导入文件夹'),
+              ),
+              TextButton(
+                onPressed: _busy ? null : _pickArchive,
+                child: const Text('导入 zip / cbz'),
+              ),
               TextButton(
                 onPressed: _busy
                     ? null
@@ -292,8 +349,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     title: const Text('清理封面缓存'),
                     content: const Text('只删除搜索和详情用过的封面。已下载的漫画会留下。'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('留下')),
-                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('清理')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('留下'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('清理'),
+                      ),
                     ],
                   ),
                 );
@@ -317,13 +380,17 @@ class _SettingsPageState extends State<SettingsPage> {
                   max: 16,
                   divisions: 15,
                   label: '${_concurrency ?? settings.concurrency}',
-                  onChanged: (value) => setState(() => _concurrency = value.round()),
+                  onChanged: (value) =>
+                      setState(() => _concurrency = value.round()),
                   onChangeEnd: (value) async {
-                    await _save(settings.copyWith(
-                      apiDomains: _lines(_api),
-                      imageDomains: _lines(_images),
-                      concurrency: value.round(),
-                    ));
+                    await _save(
+                      settings.copyWith(
+                        apiDomains: _lines(_api),
+                        imageDomains: _lines(_images),
+                        httpProxy: _proxy.text.trim(),
+                        concurrency: value.round(),
+                      ),
+                    );
                     if (mounted) setState(() => _concurrency = null);
                   },
                 ),
@@ -348,36 +415,74 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('阅读时保持屏幕常亮'),
             value: settings.keepScreenOn,
             activeThumbColor: InkColors.cinnabar,
-            onChanged: (value) => _save(settings.copyWith(
-              apiDomains: _lines(_api),
-              imageDomains: _lines(_images),
-              keepScreenOn: value,
-              keepAwake: value ? 'on' : 'off',
-            )),
+            onChanged: (value) => _save(
+              settings.copyWith(
+                apiDomains: _lines(_api),
+                imageDomains: _lines(_images),
+                keepScreenOn: value,
+                keepAwake: value ? 'on' : 'off',
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           const SectionLabel('连接'),
           const SizedBox(height: 8),
-          const Text('API 域名', style: TextStyle(color: InkColors.mute, fontSize: 12)),
-          TextField(controller: _api, maxLines: 4, decoration: const InputDecoration(hintText: '每行一个')),
+          const Text(
+            'API 域名',
+            style: TextStyle(color: InkColors.mute, fontSize: 12),
+          ),
+          TextField(
+            controller: _api,
+            maxLines: 4,
+            decoration: const InputDecoration(hintText: '每行一个'),
+          ),
           const SizedBox(height: 12),
-          const Text('图片域名', style: TextStyle(color: InkColors.mute, fontSize: 12)),
+          const Text(
+            '图片域名',
+            style: TextStyle(color: InkColors.mute, fontSize: 12),
+          ),
           TextField(controller: _images, maxLines: 4),
+          const SizedBox(height: 12),
+          const Text(
+            'HTTP 代理',
+            style: TextStyle(color: InkColors.mute, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '留空就是直连。只接受 http 或 https 地址。',
+            style: TextStyle(color: InkColors.mute, height: 1.4),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _proxy,
+            decoration: const InputDecoration(
+              hintText: 'http://127.0.0.1:7890',
+            ),
+          ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('启动时自动更新 API 域名'),
             value: settings.autoUpdateDomains,
             activeThumbColor: InkColors.cinnabar,
-            onChanged: (value) => _save(settings.copyWith(
-              apiDomains: _lines(_api),
-              imageDomains: _lines(_images),
-              autoUpdateDomains: value,
-            )),
+            onChanged: (value) => _save(
+              settings.copyWith(
+                apiDomains: _lines(_api),
+                imageDomains: _lines(_images),
+                httpProxy: _proxy.text.trim(),
+                autoUpdateDomains: value,
+              ),
+            ),
           ),
           Wrap(
             children: [
               TextButton(
-                onPressed: () => _save(settings.copyWith(apiDomains: _lines(_api), imageDomains: _lines(_images))),
+                onPressed: () => _save(
+                  settings.copyWith(
+                    apiDomains: _lines(_api),
+                    imageDomains: _lines(_images),
+                    httpProxy: _proxy.text.trim(),
+                  ),
+                ),
                 child: const Text('保存域名'),
               ),
               TextButton(
@@ -398,14 +503,20 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           if (_note != null) ...[
             const SizedBox(height: 8),
-            Text(_note!, style: const TextStyle(color: InkColors.brass, height: 1.4)),
+            Text(
+              _note!,
+              style: const TextStyle(color: InkColors.brass, height: 1.4),
+            ),
           ],
           const SizedBox(height: 28),
           const SectionLabel('关于'),
           const SizedBox(height: 8),
           Text('JMComicReader $version', style: const TextStyle(fontSize: 16)),
           const SizedBox(height: 4),
-          const Text('开源项目', style: TextStyle(color: InkColors.mute, fontSize: 12)),
+          const Text(
+            '开源项目',
+            style: TextStyle(color: InkColors.mute, fontSize: 12),
+          ),
           const SizedBox(height: 8),
           const Text(
             '本地 JM 漫画阅读器。搜索、下载和阅读都在这台设备上完成。',
@@ -414,7 +525,10 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: () => _open(_repo), child: const Text('在 GitHub 上标星')),
+            child: TextButton(
+              onPressed: () => _open(_repo),
+              child: const Text('在 GitHub 上标星'),
+            ),
           ),
           Align(
             alignment: Alignment.centerLeft,
@@ -425,8 +539,14 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           Wrap(
             children: [
-              TextButton(onPressed: () => _open(_issues), child: const Text('问题')),
-              TextButton(onPressed: () => _open(_releases), child: const Text('发布')),
+              TextButton(
+                onPressed: () => _open(_issues),
+                child: const Text('问题'),
+              ),
+              TextButton(
+                onPressed: () => _open(_releases),
+                child: const Text('发布'),
+              ),
               TextButton(onPressed: _showLicense, child: const Text('MIT 许可证')),
             ],
           ),
@@ -451,11 +571,19 @@ class _SettingsPageState extends State<SettingsPage> {
         title: const Text('MIT 许可证'),
         content: const SizedBox(
           width: 420,
-          child: SingleChildScrollView(child: Text(_license, style: TextStyle(height: 1.45, fontSize: 13))),
+          child: SingleChildScrollView(
+            child: Text(_license, style: TextStyle(height: 1.45, fontSize: 13)),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => _open('$_repo/blob/main/LICENSE'), child: const Text('在 GitHub 打开')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+          TextButton(
+            onPressed: () => _open('$_repo/blob/main/LICENSE'),
+            child: const Text('在 GitHub 打开'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
         ],
       ),
     );
@@ -466,12 +594,17 @@ class _SettingsPageState extends State<SettingsPage> {
     return TextButton(
       onPressed: selected
           ? null
-          : () => _save(settings.copyWith(
+          : () => _save(
+              settings.copyWith(
                 apiDomains: _lines(_api),
                 imageDomains: _lines(_images),
                 readerMode: value,
-              )),
-      child: Text(label, style: TextStyle(color: selected ? InkColors.cinnabar : InkColors.dim)),
+              ),
+            ),
+      child: Text(
+        label,
+        style: TextStyle(color: selected ? InkColors.cinnabar : InkColors.dim),
+      ),
     );
   }
 }

@@ -1,7 +1,7 @@
 ; JMComicReader 2.1 Windows installer.
 ; Packages the Flutter desktop build and the bundled jmengine.exe.
 #ifndef AppVersion
-  #define AppVersion "2.1.0"
+  #define AppVersion "2.2.0"
 #endif
 #ifndef BundleDir
   #define BundleDir "..\..\build\windows\x64\runner\Release"

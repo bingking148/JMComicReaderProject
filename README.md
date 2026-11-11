@@ -32,6 +32,20 @@ Linux 和 macOS 可以按下面的步骤自己编译。发布页里没有这两�
 
 第一次打开需要确认年龄。
 
+## 2.2.0
+
+Windows 安装向导可以分别选择程序目录和漫画数据目录。设置里可以更改数据目录、打开漫画目录、导入文件夹或 zip / cbz、查看占用、只清理封面缓存，以及重新扫描书架。关于页有版本和仓库链接。
+
+首页有推荐关键词、分类、每日最新和收藏最多。搜索后可以按排序和时间筛选。
+
+取消下载会先确认。确认后删除这次已下载的文件；点「留下」则继续。暂停保留已下的页。
+
+会记住较快的官方线路，列表和封面可以先用缓存。设置里的 HTTP 或 HTTPS 代理默认关闭。
+
+- [v2.2.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.2.0)
+- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.2.0/JMComicReader-2.2.0-arm64.apk)
+- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.2.0/JMComicReader-Setup-v2.2.0.exe)
+
 ## 2.1.0
 
 阅读器打开后直接看页面。点页面中间或按 Esc 才显示工具条。底栏是上一话、页码滑块和下一话。适宽、底色、遮光、方向和长条滚动在阅读设置里。目录和页面缩略图可以跳转。
@@ -60,7 +74,7 @@ python start.py
 
 ## 从源码构建
 
-需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.1.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
+需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.2.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
 
 ```bash
 scripts/build-engine.sh
@@ -73,7 +87,7 @@ flutter run -d linux
 
 把 `linux` 换成 `windows` 或 `macos` 即可。工作目录在 `app/` 时，程序会找 `app/bin/jmengine`（Windows 是 `jmengine.exe`）。也可以用环境变量 `JM_ENGINE` 指向这个文件。
 
-Windows 安装包在打 `v2.1.0` 标签时由 GitHub Actions 生成。本地可以这样编：
+Windows 安装包在打 `v2.2.0` 标签时由 GitHub Actions 生成。本地可以这样编：
 
 ```bat
 cd engine
@@ -81,7 +95,7 @@ set CGO_ENABLED=0
 go build -trimpath -ldflags "-s -w" -o ../app/bin/jmengine.exe ./cmd/jmengine
 cd ../app
 flutter build windows
-ISCC /DAppVersion=2.1.0 app\windows\installer\JMComicReader.iss
+ISCC /DAppVersion=2.2.0 app\windows\installer\JMComicReader.iss
 ```
 
 Linux：

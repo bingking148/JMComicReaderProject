@@ -26,6 +26,14 @@ func (g *gateCatalog) Search(context.Context, string, int) (jm.SearchResult, err
 	return jm.SearchResult{}, nil
 }
 
+func (g *gateCatalog) SearchOrdered(context.Context, string, int, string, string) (jm.SearchResult, error) {
+	return jm.SearchResult{}, nil
+}
+
+func (g *gateCatalog) Browse(context.Context, int, string, string, string) (jm.SearchResult, error) {
+	return jm.SearchResult{}, nil
+}
+
 func (g *gateCatalog) Album(context.Context, int64) (jm.Album, error) {
 	return jm.Album{
 		Summary:      jm.Summary{ID: 7, Title: "国漫世界", Author: "作者"},
