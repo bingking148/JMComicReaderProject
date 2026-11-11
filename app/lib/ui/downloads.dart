@@ -59,7 +59,7 @@ class _JobRow extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            ProgressRule(value: job.active && job.total == 0 ? 0 : job.fraction),
+            ProgressRule(value: job.track),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -88,6 +88,18 @@ class _JobRow extends StatelessWidget {
                 if (job.status != 'complete')
                   TextButton(
                     onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('取消下载'),
+                          content: const Text('已下载的页面会删除。之后再继续会重新下载。'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('留下')),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('取消并删除')),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true) return;
                       await session.api.cancel(job.albumId);
                       await session.refreshJobs();
                     },
