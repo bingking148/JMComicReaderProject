@@ -28,6 +28,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _busy = false;
   StorageUse _storage = const StorageUse();
 
+  static const _repo = 'https://github.com/bingking148/JMComicReaderProject';
+  static const _issues = 'https://github.com/bingking148/JMComicReaderProject/issues';
   static const _releases = 'https://github.com/bingking148/JMComicReaderProject/releases';
 
   @override
@@ -400,20 +402,59 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 28),
           const SectionLabel('关于'),
           const SizedBox(height: 8),
-          Text('JMComicReader $version', style: const TextStyle(color: InkColors.dim)),
+          Text('JMComicReader $version', style: const TextStyle(fontSize: 16)),
+          const SizedBox(height: 4),
+          const Text('开源项目', style: TextStyle(color: InkColors.mute, fontSize: 12)),
+          const SizedBox(height: 8),
+          const Text(
+            '本地 JM 漫画阅读器。搜索、下载和阅读都在这台设备上完成。',
+            style: TextStyle(color: InkColors.dim, height: 1.45),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(onPressed: () => _open(_repo), child: const Text('在 GitHub 上标星')),
+          ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => launchUrl(Uri.parse(_releases), mode: LaunchMode.externalApplication),
-              child: const Text('发布页'),
+              onPressed: () => _open(_repo),
+              child: const Text('github.com/bingking148/JMComicReaderProject'),
             ),
           ),
+          Wrap(
+            children: [
+              TextButton(onPressed: () => _open(_issues), child: const Text('问题')),
+              TextButton(onPressed: () => _open(_releases), child: const Text('发布')),
+              TextButton(onPressed: _showLicense, child: const Text('MIT 许可证')),
+            ],
+          ),
+          const SizedBox(height: 12),
           const Text(
             '本应用仅供学习交流。漫画来自网络，程序不会把内容上传到任何服务器。请遵守所在地法律，勿用于非法用途。阅读前需确认已年满 18 岁。',
             style: TextStyle(color: InkColors.mute, height: 1.5),
           ),
-          const SizedBox(height: 8),
-          const Text('MIT License', style: TextStyle(color: InkColors.mute, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _open(String url) {
+    return launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _showLicense() {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('MIT 许可证'),
+        content: const SizedBox(
+          width: 420,
+          child: SingleChildScrollView(child: Text(_license, style: TextStyle(height: 1.45, fontSize: 13))),
+        ),
+        actions: [
+          TextButton(onPressed: () => _open('$_repo/blob/main/LICENSE'), child: const Text('在 GitHub 打开')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
         ],
       ),
     );
@@ -433,3 +474,27 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
+
+const _license = '''
+MIT License
+
+Copyright (c) 2025 Your Name
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+''';
