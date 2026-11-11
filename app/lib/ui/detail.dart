@@ -91,7 +91,7 @@ class _DetailPageState extends State<DetailPage> {
         title: const Text('详情', style: TextStyle(fontSize: 16)),
       ),
       body: _loading
-          ? const Center(child: ProgressRule(value: 0))
+          ? const Center(child: ProgressRule())
           : _error != null && _album == null
               ? QuietMessage(title: '打不开这本', detail: _error)
               : _content(session, job),
@@ -160,7 +160,7 @@ class _DetailPageState extends State<DetailPage> {
         if (busy) ...[
           Text(job.message, style: const TextStyle(color: InkColors.dim)),
           const SizedBox(height: 8),
-          ProgressRule(value: job.fraction),
+          ProgressRule(value: job.track),
           TextButton(onPressed: () => SessionScope.of(context).api.pause(summary.id), child: const Text('暂停')),
         ] else
           Wrap(

@@ -1,6 +1,6 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(JMComicReader LANGUAGES CXX VERSION 2.1.0)
+project(JMComicReader LANGUAGES CXX VERSION 2.2.0)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.

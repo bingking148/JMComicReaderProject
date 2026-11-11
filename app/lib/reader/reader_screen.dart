@@ -263,10 +263,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _precache() {
     final pages = _current?.pages ?? const <String>[];
-    for (final delta in const [-1, 1, 2]) {
+    final targets = <String>[];
+    for (final delta in const [-2, -1, 1, 2, 3]) {
       final index = _page + delta;
       if (index < 0 || index >= pages.length) continue;
-      precacheImage(FileImage(File(pages[index])), context);
+      targets.add(pages[index]);
+    }
+    final doc = _doc;
+    if (doc != null && _chapter + 1 < doc.chapters.length) {
+      final next = doc.chapters[_chapter + 1].pages;
+      final extra = next.length < 2 ? next.length : 2;
+      for (var i = 0; i < extra; i++) {
+        targets.add(next[i]);
+      }
+    }
+    for (final path in targets) {
+      if (path.isEmpty) continue;
+      precacheImage(FileImage(File(path)), context);
     }
   }
 
@@ -416,6 +429,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         rtl: _rtl,
         readerBackground: _background,
         keepAwake: _awake ? 'on' : 'off',
+        keepScreenOn: _awake,
         orientation: _orientation,
         readerDim: _dim,
         stripSpeed: _stripSpeed,
