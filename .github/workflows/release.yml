@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v2.0.0"
+      - "v2.1.0"
   workflow_dispatch:
 
 permissions:
@@ -57,12 +57,12 @@ jobs:
           bash scripts/build-android-engine.sh
           cd app
           flutter build apk --release --target-platform android-arm64
-          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/JMComicReader-2.0.0-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/JMComicReader-2.1.0-arm64.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: JMComicReader-2.0.0-arm64.apk
+          path: JMComicReader-2.1.0-arm64.apk
           if-no-files-found: error
 
   windows:
@@ -108,13 +108,13 @@ jobs:
             "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw "ISCC.exe not found" }
-          & $iscc /DAppVersion=2.0.0 "app\windows\installer\JMComicReader.iss"
-          if (-not (Test-Path "dist\JMComicReader-Setup-v2.0.0.exe")) { throw "Installer was not produced" }
+          & $iscc /DAppVersion=2.1.0 "app\windows\installer\JMComicReader.iss"
+          if (-not (Test-Path "dist\JMComicReader-Setup-v2.1.0.exe")) { throw "Installer was not produced" }
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-setup
-          path: dist/JMComicReader-Setup-v2.0.0.exe
+          path: dist/JMComicReader-Setup-v2.1.0.exe
           if-no-files-found: error
 
   publish:
@@ -129,23 +129,25 @@ jobs:
       - name: List release files
         run: find release-files -type f -printf '%s %p\n'
 
-      - name: Publish v2.0.0
+      - name: Publish v2.1.0
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.0
-          name: JMComicReader v2.0.0
+          tag_name: v2.1.0
+          name: JMComicReader v2.1.0
           draft: false
           prerelease: false
           make_latest: true
           generate_release_notes: false
           files: |
-            release-files/android-apk/JMComicReader-2.0.0-arm64.apk
-            release-files/windows-setup/JMComicReader-Setup-v2.0.0.exe
+            release-files/android-apk/JMComicReader-2.1.0-arm64.apk
+            release-files/windows-setup/JMComicReader-Setup-v2.1.0.exe
           body: |
-            JMComicReader 2.0.0。桌面和 Android 都是独立应用：Go 引擎在本机进程里，Flutter 负责窗口和阅读。不需要 Python，也不需要另一台电脑上的服务。
+            JMComicReader 2.1.0。桌面和 Android 都是独立应用：Go 引擎在本机进程里，Flutter 负责窗口和阅读。不需要 Python，也不需要另一台电脑上的服务。
 
-            - `JMComicReader-2.0.0-arm64.apk`：Android arm64 安装包
-            - `JMComicReader-Setup-v2.0.0.exe`：Windows 安装程序。装好后打开的是本机窗口，`jmengine.exe` 在主程序旁边
+            阅读器打开后直接看页面。点页面中间或按 Esc 才显示工具条。底栏是上一话、页码滑块和下一话。适宽、底色、遮光、方向和长条滚动在阅读设置里。目录和页面缩略图可以跳转。使用前需确认已年满 18 岁。
+
+            - `JMComicReader-2.1.0-arm64.apk`：Android arm64 安装包。引擎嵌在应用里，不需要电脑上的服务。
+            - `JMComicReader-Setup-v2.1.0.exe`：Windows 安装程序。装好后打开的是本机窗口，`jmengine.exe` 在主程序旁边。
 
             下载的漫画保存在系统用户目录，更新安装不会删除它们。
         env:
