@@ -15,6 +15,8 @@ import (
 // Catalog is the JM surface used by downloads and the local API.
 type Catalog interface {
 	Search(ctx context.Context, query string, page int) (jm.SearchResult, error)
+	SearchOrdered(ctx context.Context, query string, page int, orderBy, timeRange string) (jm.SearchResult, error)
+	Browse(ctx context.Context, page int, category, orderBy, timeRange string) (jm.SearchResult, error)
 	Album(ctx context.Context, id int64) (jm.Album, error)
 	Chapter(ctx context.Context, photoID int64) (jm.ChapterDetail, error)
 	ScrambleID(ctx context.Context, photoID int64) (int, error)
