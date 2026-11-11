@@ -340,6 +340,30 @@ class Settings {
       };
 }
 
+class DataRootChange {
+  const DataRootChange({
+    this.oldPath = '',
+    this.newPath = '',
+    this.error = '',
+    this.moved = false,
+    this.restart = false,
+  });
+
+  final String oldPath;
+  final String newPath;
+  final String error;
+  final bool moved;
+  final bool restart;
+
+  factory DataRootChange.fromJson(Map<String, dynamic> json) => DataRootChange(
+        oldPath: (json['oldPath'] ?? '') as String,
+        newPath: (json['newPath'] ?? '') as String,
+        error: (json['error'] ?? '') as String,
+        moved: json['moved'] == true,
+        restart: json['restart'] == true,
+      );
+}
+
 int asInt(Object? value) {
   if (value is int) return value;
   if (value is num) return value.toInt();

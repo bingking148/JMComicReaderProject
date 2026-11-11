@@ -14,6 +14,15 @@
 
 安装后打开的是本机窗口。Windows 安装目录里主程序旁边有 `jmengine.exe`。不需要 Python，也不需要另一台电脑上的服务。手机安装 APK 后同样自己带引擎。
 
+Windows 安装向导有两页，互不替代：
+
+1. **程序安装位置**。默认在 Program Files，可以改到 D: 或其他磁盘。这里只放程序本身。
+2. **漫画数据目录**。封面、下载的漫画和书架数据库。默认仍是 `%APPDATA%\JMComicReader\JMComicReader`。已经在用 2.0.0、并且这一步保持默认的用户，漫画还在原来的 AppData 里。
+
+装好以后也可以在桌面版的「设置」里更改漫画数据目录。可以选择把现有文件搬走，或只改路径、把旧目录原样留下。没有你的选择，程序不会删除旧目录。卸载安装程序同样不会删除漫画数据。
+
+Android 仍使用应用自己的私有目录，不读这个 Windows 路径。
+
 ## 能做什么
 
 - 关键词搜索，以及用 JM 号直接打开
@@ -45,7 +54,7 @@ Flutter 不实现站点协议。它只做界面，通过本机回环地址访问
 - **Android**：`gomobile` 把引擎编进 APK，由 `MainActivity` 在进程内 `Start`
 - **iOS**：工程和 MethodChannel 已留好。把 gomobile 的 xcframework 接上 `jmengine.Start` 之后就能编，步骤见下方
 
-数据放在系统给应用的支持目录里（桌面大约是 `~/.local/share/app.jmcomic.reader.jm_comic_reader`，Android 在应用私有目录）。封面缓存、书架数据库和漫画正文都在这里，升级安装不会清掉。
+没有另外指定时，数据放在系统给应用的支持目录里（Windows 是 `%APPDATA%\JMComicReader\JMComicReader`，Linux 大约是 `~/.local/share/app.jmcomic.reader.jm_comic_reader`，Android 在应用私有目录）。封面缓存、书架数据库和漫画正文都在这里，升级安装不会清掉。Windows 可以在安装向导或设置里把这个目录改到其他磁盘。
 
 ## 环境
 

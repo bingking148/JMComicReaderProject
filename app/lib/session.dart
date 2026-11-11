@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'engine/client.dart';
+import 'engine/data_root.dart';
 import 'engine/host.dart';
 import 'engine/models.dart';
 
@@ -20,8 +20,8 @@ class Session extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> boot() async {
     WidgetsBinding.instance.addObserver(this);
     try {
-      final dir = await getApplicationSupportDirectory();
-      final endpoint = await EngineHost.start(dir.path);
+      final dir = await resolveDataDir();
+      final endpoint = await EngineHost.start(dir);
       _process = endpoint.process;
       engine = EngineClient(base: endpoint.base, token: endpoint.token);
       settings = await engine!.settings();
@@ -58,6 +58,49 @@ class Session extends ChangeNotifier with WidgetsBindingObserver {
 
   void adopt(Settings next) {
     settings = next;
+    notifyListeners();
+  }
+
+  /// Points later launches at [path]. When [move] is true the current files
+  /// are transferred and removed from the old directory. Otherwise the old
+  /// directory is left as it is.
+  Future<String> changeDataDirectory(String path, {required bool move}) async {
+    final previous = settings.dataDir;
+    DataRootChange change;
+    try {
+      change = await api.relocateData(path, move: move);
+    } catch (err) {
+      rethrow;
+    }
+    if (!change.restart) {
+      if (change.error.isNotEmpty) throw EngineException(change.error);
+      return previous;
+    }
+    final target = change.error.isEmpty || change.moved ? (change.newPath.isEmpty ? path : change.newPath) : previous;
+    if (change.error.isEmpty || change.moved) {
+      await writeDataPointer(target);
+    }
+    await _restart(target);
+    if (change.error.isNotEmpty) throw EngineException(change.error);
+    return target;
+  }
+
+  Future<void> _restart(String dataDir) async {
+    _poll?.cancel();
+    _poll = null;
+    _process?.kill();
+    _process = null;
+    engine = null;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    final endpoint = await EngineHost.start(dataDir);
+    _process = endpoint.process;
+    engine = EngineClient(base: endpoint.base, token: endpoint.token);
+    settings = await engine!.settings();
+    bootError = null;
+    if (settings.ageAccepted) {
+      await refreshJobs();
+      _ensurePoll();
+    }
     notifyListeners();
   }
 
