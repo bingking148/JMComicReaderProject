@@ -49,6 +49,8 @@ type Client struct {
 	sticky       int
 	warm         bool
 	referer      string
+	cacheDir     string
+	inflight     map[string]*cacheFlight
 }
 
 func NewClient(apiDomains, imageDomains []string, version string, retry int) *Client {
@@ -61,15 +63,9 @@ func NewClient(apiDomains, imageDomains []string, version string, retry int) *Cl
 	}
 	c := &Client{
 		http: &http.Client{
-			Jar:     jar,
-			Timeout: 40 * time.Second,
-			Transport: &http.Transport{
-				Proxy:               http.ProxyFromEnvironment,
-				MaxIdleConns:        32,
-				MaxIdleConnsPerHost: 8,
-				IdleConnTimeout:     90 * time.Second,
-				TLSHandshakeTimeout: 12 * time.Second,
-			},
+			Jar:       jar,
+			Timeout:   40 * time.Second,
+			Transport: newTransport(nil),
 		},
 		version: version,
 		retry:   retry,
@@ -211,6 +207,12 @@ func (c *Client) RefreshDomains(ctx context.Context) ([]string, error) {
 }
 
 func (c *Client) Search(ctx context.Context, query string, page int) (SearchResult, error) {
+	return c.SearchOrdered(ctx, query, page, "mr", "a")
+}
+
+// SearchOrdered is the mobile search. orderBy is mr/mv/mp/tf and timeRange is t/w/m/a.
+// The mobile search API does not accept category.
+func (c *Client) SearchOrdered(ctx context.Context, query string, page int, orderBy, timeRange string) (SearchResult, error) {
 	if err := c.Warmup(ctx); err != nil {
 		// Cookies help, but a failed warmup should not block the search itself.
 	}
@@ -221,9 +223,9 @@ func (c *Client) Search(ctx context.Context, query string, page int) (SearchResu
 	q.Set("main_tag", "0")
 	q.Set("search_query", query)
 	q.Set("page", strconv.Itoa(page))
-	q.Set("o", "mr")
-	q.Set("t", "a")
-	body, err := c.call(ctx, "/search?"+q.Encode(), false)
+	q.Set("o", NormalizeOrder(orderBy))
+	q.Set("t", NormalizeTime(timeRange))
+	body, err := c.callCached(ctx, "/search?"+q.Encode(), searchFresh, searchStale, false)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -240,9 +242,28 @@ func (c *Client) Search(ctx context.Context, query string, page int) (SearchResu
 	return res, nil
 }
 
+// Browse lists a category shelf. Time is folded into the order code, matching
+// the mobile categories/filter API: mr, tf, mv_t, mv_w, mv_m.
+func (c *Client) Browse(ctx context.Context, page int, category, orderBy, timeRange string) (SearchResult, error) {
+	_ = c.Warmup(ctx)
+	if page < 1 {
+		page = 1
+	}
+	q := url.Values{}
+	q.Set("page", strconv.Itoa(page))
+	q.Set("order", "")
+	q.Set("c", NormalizeCategory(category))
+	q.Set("o", FilterOrder(orderBy, timeRange))
+	body, err := c.call(ctx, "/categories/filter?"+q.Encode(), false)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	return ParseSearch(body)
+}
+
 func (c *Client) Album(ctx context.Context, id int64) (Album, error) {
 	_ = c.Warmup(ctx)
-	body, err := c.call(ctx, "/album?id="+strconv.FormatInt(id, 10), false)
+	body, err := c.callCached(ctx, "/album?id="+strconv.FormatInt(id, 10), detailFresh, detailStale, false)
 	if err != nil {
 		return Album{}, err
 	}
@@ -251,7 +272,7 @@ func (c *Client) Album(ctx context.Context, id int64) (Album, error) {
 
 func (c *Client) Chapter(ctx context.Context, photoID int64) (ChapterDetail, error) {
 	_ = c.Warmup(ctx)
-	body, err := c.call(ctx, "/chapter?id="+strconv.FormatInt(photoID, 10), false)
+	body, err := c.callCached(ctx, "/chapter?id="+strconv.FormatInt(photoID, 10), detailFresh, detailStale, false)
 	if err != nil {
 		return ChapterDetail{}, err
 	}
@@ -319,6 +340,7 @@ func (c *Client) fetchAsset(ctx context.Context, path string) ([]byte, error) {
 			}
 			body, err := c.fetchBinary(ctx, u)
 			if err == nil && looksLikeImage(body) {
+				c.promoteImage(origin)
 				return body, nil
 			}
 			if err != nil {
@@ -332,6 +354,22 @@ func (c *Client) fetchAsset(ctx context.Context, path string) ([]byte, error) {
 		last = fmt.Errorf("下载失败")
 	}
 	return nil, last
+}
+
+func (c *Client) promoteImage(origin string) {
+	origin = NormalizeOrigin(origin)
+	if origin == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	next := []string{origin}
+	for _, d := range c.imageDomains {
+		if d != origin {
+			next = append(next, d)
+		}
+	}
+	c.imageDomains = next
 }
 
 func (c *Client) fetchBinary(ctx context.Context, rawURL string) ([]byte, error) {
@@ -373,7 +411,10 @@ func (c *Client) call(ctx context.Context, path string, scramble bool) ([]byte, 
 	var last error
 	for i := 0; i < retry; i++ {
 		origin := domains[(sticky+i)%len(domains)]
-		body, err := c.once(ctx, origin, path, version, secret, scramble)
+		// One slow or dead host must not consume the caller's whole deadline.
+		actx, cancel := context.WithTimeout(ctx, attemptBudget)
+		body, err := c.once(actx, origin, path, version, secret, scramble)
+		cancel()
 		if err == nil {
 			c.mu.Lock()
 			c.sticky = (sticky + i) % len(domains)

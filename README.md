@@ -15,19 +15,36 @@ Windows 安装程序默认把程序装到 `%LOCALAPPDATA%\Programs\JMComicReader
 - Windows：`%APPDATA%\JMComicReader\JMComicReader`
 - Android：应用私有目录
 
+Windows 安装向导有两页，互不替代：程序安装位置，以及漫画数据目录。默认数据目录仍是 `%APPDATA%\JMComicReader\JMComicReader`。装好以后可以在桌面版的设置里更改，并选择是否把现有文件搬走。没有选择时，程序不会删除旧目录。卸载安装程序同样不会删除漫画数据。Android 仍使用应用自己的私有目录。
+
 设置页顶部会显示这台机器上的实际路径。漫画文件在其中的 `comics/` 下，一本一个 `{编号}_{标题}` 文件夹。
 
 Linux 和 macOS 可以按下面的步骤自己编译。发布页里没有这两个平台的安装包。
 
 ## 使用
 
-- 用关键词搜索，或直接输入 JM 编号打开一本
+- 首页有推荐关键词、分类、每日最新和收藏最多
+- 用关键词搜索，或直接输入 JM 编号打开一本。搜索后可以按最新、观看、图片、收藏，以及今日、本周、本月、全部筛选
 - 下载可以暂停、继续；已经下完的页会跳过
 - 在书架里阅读已下载的漫画，阅读进度按本保存
 - 阅读时会按页面和窗口在单页、跨页、长条之间选择，也可以自己指定。可以缩放，也可以用键盘翻页
 - 设置里可以改 API 域名、图片域名和同时下载的图片数（1–16），也可以只清理封面缓存
 
 第一次打开需要确认年龄。
+
+## 2.2.0
+
+Windows 安装向导可以分别选择程序目录和漫画数据目录。设置里可以更改数据目录、打开漫画目录、导入文件夹或 zip / cbz、查看占用、只清理封面缓存，以及重新扫描书架。关于页有版本和仓库链接。
+
+首页有推荐关键词、分类、每日最新和收藏最多。搜索后可以按排序和时间筛选。
+
+取消下载会先确认。确认后删除这次已下载的文件；点「留下」则继续。暂停保留已下的页。
+
+会记住较快的官方线路，列表和封面可以先用缓存。设置里的 HTTP 或 HTTPS 代理默认关闭。
+
+- [v2.2.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.2.0)
+- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.2.0/JMComicReader-2.2.0-arm64.apk)
+- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.2.0/JMComicReader-Setup-v2.2.0.exe)
 
 ## 2.1.0
 
@@ -41,7 +58,7 @@ Linux 和 macOS 可以按下面的步骤自己编译。发布页里没有这两�
 
 2.0 不读取旧的 `comics.db`，也不再生成 PDF。
 
-如果旧下载是 `{编号}_{标题}/`，里面是章节子目录，或者图片直接铺在这一层，把这些文件夹拷进上面的 `comics/`，然后在设置里点「重新扫描书架」。
+如果旧下载是 `{编号}_{标题}/`，里面是章节子目录，或者图片直接铺在这一层，把这些文件夹拷进上面的 `comics/`，然后在设置里点「重新扫描书架」。也可以在设置里导入这样的文件夹，或同样结构的 zip / cbz。已经下完的书不会被导入覆盖。
 
 `jm_option.yml` 不会导入。域名和下载并发在设置页里改。
 
@@ -57,7 +74,7 @@ python start.py
 
 ## 从源码构建
 
-需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.1.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
+需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.2.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
 
 ```bash
 scripts/build-engine.sh
@@ -70,7 +87,7 @@ flutter run -d linux
 
 把 `linux` 换成 `windows` 或 `macos` 即可。工作目录在 `app/` 时，程序会找 `app/bin/jmengine`（Windows 是 `jmengine.exe`）。也可以用环境变量 `JM_ENGINE` 指向这个文件。
 
-Windows 安装包在打 `v2.1.0` 标签时由 GitHub Actions 生成。本地可以这样编：
+Windows 安装包在打 `v2.2.0` 标签时由 GitHub Actions 生成。本地可以这样编：
 
 ```bat
 cd engine
@@ -78,7 +95,7 @@ set CGO_ENABLED=0
 go build -trimpath -ldflags "-s -w" -o ../app/bin/jmengine.exe ./cmd/jmengine
 cd ../app
 flutter build windows
-ISCC /DAppVersion=2.1.0 app\windows\installer\JMComicReader.iss
+ISCC /DAppVersion=2.2.0 app\windows\installer\JMComicReader.iss
 ```
 
 Linux：

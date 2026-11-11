@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bingking148/JMComicReaderProject/engine/internal/dataroot"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/httpapi"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
 )
@@ -26,6 +27,20 @@ type fakeCatalog struct {
 
 func (f *fakeCatalog) Search(context.Context, string, int) (jm.SearchResult, error) {
 	return jm.SearchResult{Total: 1, Items: []jm.Summary{{ID: 5, Title: "搜索结果", Author: "作者"}}}, nil
+}
+
+func (f *fakeCatalog) SearchOrdered(context.Context, string, int, string, string) (jm.SearchResult, error) {
+	return f.Search(context.Background(), "", 1)
+}
+
+func (f *fakeCatalog) Browse(context.Context, int, string, string, string) (jm.SearchResult, error) {
+	return jm.SearchResult{
+		Total: 2,
+		Items: []jm.Summary{
+			{ID: 11, Title: "今日", Tags: []string{"全彩", "校园"}},
+			{ID: 12, Title: "另一本", Tags: []string{"全彩", "剧情"}},
+		},
+	}, nil
 }
 
 func (f *fakeCatalog) Album(context.Context, int64) (jm.Album, error) {
@@ -158,6 +173,30 @@ func postJSON(t *testing.T, h http.Handler, path, body, token string) *httptest.
 	return rec
 }
 
+func TestDiscoverKeywords(t *testing.T) {
+	dir := t.TempDir()
+	application, err := OpenWith(dir, &fakeCatalog{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := application.Config.Get()
+	settings.AgeAccepted = true
+	_, _ = application.UpdateSettings(settings)
+	feed, err := application.Discover(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(feed.Latest) != 2 || len(feed.MostFavorited) != 2 {
+		t.Fatalf("%+v", feed)
+	}
+	if len(feed.Keywords) == 0 || feed.Keywords[0] != "全彩" {
+		t.Fatalf("keywords %v", feed.Keywords)
+	}
+	if len(feed.Categories) < 2 {
+		t.Fatal("missing categories")
+	}
+}
+
 func TestSearchRoute(t *testing.T) {
 	dir := t.TempDir()
 	fake := &fakeCatalog{}
@@ -192,5 +231,56 @@ func TestSearchRoute(t *testing.T) {
 	body, _ := io.ReadAll(rec.Body)
 	if !bytes.Contains(body, []byte(`"direct":true`)) {
 		t.Fatalf("direct search: %s", body)
+	}
+}
+
+func TestRelocateMoveAndSwitch(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("JM_DATA_POINTER", filepath.Join(root, "data_root.txt"))
+	oldDir := filepath.Join(root, "old")
+	application, err := OpenWith(oldDir, &fakeCatalog{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, "marker.txt"), []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(root, "moved")
+	result, err := application.Relocate(moved, "move")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Moved || !result.Restart {
+		t.Fatalf("%+v", result)
+	}
+	body, err := os.ReadFile(filepath.Join(moved, "marker.txt"))
+	if err != nil || string(body) != "keep" {
+		t.Fatalf("marker %q %v", body, err)
+	}
+	if _, err := os.Stat(oldDir); !os.IsNotExist(err) {
+		t.Fatalf("old directory still present: %v", err)
+	}
+	pointer, ok := dataroot.Read()
+	if !ok || pointer != moved {
+		t.Fatalf("pointer %q %v", pointer, ok)
+	}
+
+	switched := filepath.Join(root, "switched")
+	fresh, err := OpenWith(moved, &fakeCatalog{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = fresh.Relocate(switched, "switch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Moved || !result.Restart {
+		t.Fatalf("%+v", result)
+	}
+	if _, err := os.Stat(filepath.Join(moved, "marker.txt")); err != nil {
+		t.Fatal("switch removed the old library")
+	}
+	if _, err := os.Stat(switched); err != nil {
+		t.Fatal(err)
 	}
 }

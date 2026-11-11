@@ -10,12 +10,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bingking148/JMComicReaderProject/engine/internal/config"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/cover"
+	"github.com/bingking148/JMComicReaderProject/engine/internal/dataroot"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/download"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/httpapi"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
@@ -78,6 +80,8 @@ func open(dataDir string, cat download.Catalog) (*App, error) {
 	var client *jm.Client
 	if cat == nil {
 		client = jm.NewClient(settings.APIDomains, settings.ImageDomains, settings.AppVersion, settings.Retry)
+		client.SetCacheDir(filepath.Join(dataDir, "cache", "api"))
+		client.SetProxy(settings.HTTPProxy)
 		cat = client
 	} else if c, ok := cat.(*jm.Client); ok {
 		client = c
@@ -145,16 +149,75 @@ func (a *App) Bootstrap(ctx context.Context) {
 			a.client.SetAPIDomains(domains)
 		}
 	}
+	// Remember the fastest official host so the next launch does not start on a dead line.
+	// A host that never answers is left at the end. This does not make an uncached
+	// first download instant when every live host is overseas.
+	if ranked := a.client.RankAPI(ctx); len(ranked) > 0 {
+		_, _ = a.Config.Update(func(s *config.Settings) { s.APIDomains = ranked })
+		a.client.SetAPIDomains(ranked)
+	}
+	if ranked := a.client.RankImages(ctx); len(ranked) > 0 {
+		_, _ = a.Config.Update(func(s *config.Settings) { s.ImageDomains = ranked })
+		a.client.SetImageDomains(ranked)
+	}
 	_ = a.client.Warmup(ctx)
 	if ver := a.client.Version(); ver != "" {
 		_, _ = a.Config.Update(func(s *config.Settings) { s.AppVersion = ver })
 	}
 }
 
+// Relocate points the library at a new directory.
+// mode "move" transfers the current files and removes them from the old path.
+// mode "switch" leaves the old directory untouched.
+func (a *App) Relocate(path, mode string) (dataroot.Result, error) {
+	next, err := dataroot.CleanAbs(path)
+	if err != nil {
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: err.Error()}
+	}
+	current := filepath.Clean(a.DataDir)
+	if dataroot.Same(current, next) {
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: "新目录和当前数据目录相同"}
+	}
+	if dataroot.Inside(current, next) || dataroot.Inside(next, current) {
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: "数据目录不能放在当前数据目录里面，也不能把当前目录包进去"}
+	}
+	switch mode {
+	case "switch":
+		if err := os.MkdirAll(next, 0o755); err != nil {
+			return dataroot.Result{}, err
+		}
+		if err := dataroot.Write(next); err != nil {
+			return dataroot.Result{}, err
+		}
+		return dataroot.Result{OldPath: current, NewPath: next, Moved: false, Restart: true}, nil
+	case "move":
+		if a.Downloads != nil {
+			a.Downloads.Halt()
+			time.Sleep(200 * time.Millisecond)
+		}
+		if a.Library != nil {
+			_ = a.Library.Close()
+		}
+		if err := dataroot.Move(current, next); err != nil {
+			return dataroot.Result{Restart: true, OldPath: current, NewPath: next}, &StatusError{Code: 500, Msg: err.Error()}
+		}
+		if err := dataroot.Write(next); err != nil {
+			return dataroot.Result{Restart: true, OldPath: current, NewPath: next, Moved: true}, err
+		}
+		return dataroot.Result{OldPath: current, NewPath: next, Moved: true, Restart: true}, nil
+	default:
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: "请选择移动数据或只改路径"}
+	}
+}
+
 func (a *App) AgeAccepted() bool { return a.Config.Get().AgeAccepted }
 
 func (a *App) Settings() config.Public {
-	return config.Public{Settings: a.Config.Get(), DataDir: a.DataDir}
+	return a.public(a.Config.Get())
+}
+
+func (a *App) public(s config.Settings) config.Public {
+	return config.Public{Settings: s, DataDir: a.DataDir, ProductVersion: version.Current}
 }
 
 func (a *App) UpdateSettings(in config.Settings) (config.Public, error) {
@@ -166,8 +229,9 @@ func (a *App) UpdateSettings(in config.Settings) (config.Public, error) {
 		a.client.SetAPIDomains(next.APIDomains)
 		a.client.SetImageDomains(next.ImageDomains)
 		a.client.SetRetry(next.Retry)
+		a.client.SetProxy(next.HTTPProxy)
 	}
-	return config.Public{Settings: next, DataDir: a.DataDir}, nil
+	return a.public(next), nil
 }
 
 func (a *App) RefreshDomains(ctx context.Context) (config.Public, error) {
@@ -183,10 +247,10 @@ func (a *App) RefreshDomains(ctx context.Context) (config.Public, error) {
 		return config.Public{}, err
 	}
 	a.client.SetAPIDomains(domains)
-	return config.Public{Settings: next, DataDir: a.DataDir}, nil
+	return a.public(next), nil
 }
 
-func (a *App) Search(ctx context.Context, query string, page int, sort string) (jm.SearchResult, error) {
+func (a *App) Search(ctx context.Context, query string, page int, order, timeRange string) (jm.SearchResult, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return jm.SearchResult{}, &StatusError{Code: 400, Msg: "关键词不能为空"}
@@ -194,6 +258,8 @@ func (a *App) Search(ctx context.Context, query string, page int, sort string) (
 	if page < 1 {
 		page = 1
 	}
+	order = jm.NormalizeOrder(order)
+	timeRange = jm.NormalizeTime(timeRange)
 	if id, ok := jm.ParseJMID(query); ok && page == 1 {
 		album, err := a.Catalog.Album(ctx, id)
 		if err != nil {
@@ -204,23 +270,172 @@ func (a *App) Search(ctx context.Context, query string, page int, sort string) (
 		_ = a.Library.AddSearch(query)
 		return jm.SearchResult{Query: query, Page: 1, Total: 1, Direct: true, Items: []jm.Summary{item}}, nil
 	}
-	res, err := a.Catalog.Search(ctx, query, page)
+	res, err := a.Catalog.SearchOrdered(ctx, query, page, order, timeRange)
 	if err != nil {
 		return jm.SearchResult{}, err
 	}
-	switch sort {
-	case "favorites_asc":
-		sortSummaries(res.Items, true)
-	case "favorites_desc":
-		sortSummaries(res.Items, false)
-	}
-	for i := range res.Items {
-		res.Items[i].Downloaded = a.Library.Has(res.Items[i].ID)
-	}
+	a.markDownloaded(res.Items)
 	res.Query = query
 	res.Page = page
 	_ = a.Library.AddSearch(query)
+	ids := make([]int64, 0, 12)
+	for _, item := range res.Items {
+		if len(ids) == 12 {
+			break
+		}
+		ids = append(ids, item.ID)
+	}
+	a.Covers.Prefetch(ids)
 	return res, nil
+}
+
+func (a *App) Browse(ctx context.Context, page int, category, order, timeRange string) (jm.SearchResult, error) {
+	if page < 1 {
+		page = 1
+	}
+	res, err := a.Catalog.Browse(ctx, page, category, order, timeRange)
+	if err != nil {
+		return jm.SearchResult{}, err
+	}
+	a.markDownloaded(res.Items)
+	res.Page = page
+	return res, nil
+}
+
+func (a *App) Discover(ctx context.Context) (jm.Discover, error) {
+	latest, err := a.Browse(ctx, 1, "0", "mr", "t")
+	if err != nil || len(latest.Items) == 0 {
+		latest, err = a.Browse(ctx, 1, "0", "mr", "a")
+		if err != nil {
+			return jm.Discover{}, err
+		}
+	}
+	favorites, err := a.Browse(ctx, 1, "0", "tf", "a")
+	if err != nil {
+		return jm.Discover{}, err
+	}
+	latestItems := clip(latest.Items, 12)
+	favoriteItems := clip(favorites.Items, 12)
+	source := latestItems
+	if !usefulTags(source) {
+		ids := make([]int64, 0, 6)
+		for _, item := range source {
+			if len(ids) == 6 {
+				break
+			}
+			ids = append(ids, item.ID)
+		}
+		if details, err := a.Enrich(ctx, ids); err == nil {
+			copies := append([]jm.Summary(nil), source...)
+			for i := range copies {
+				if extra, ok := details[strconv.FormatInt(copies[i].ID, 10)]; ok && len(extra.Tags) > 0 {
+					copies[i].Tags = extra.Tags
+				}
+			}
+			if usefulTags(copies) {
+				source = copies
+			} else {
+				source = nil
+			}
+		} else {
+			source = nil
+		}
+	}
+	keywords := keywordSuggestions(source)
+	return jm.Discover{
+		Keywords:      keywords,
+		Categories:    jm.Categories(),
+		Latest:        latestItems,
+		MostFavorited: favoriteItems,
+	}, nil
+}
+
+func (a *App) markDownloaded(items []jm.Summary) {
+	for i := range items {
+		items[i].Downloaded = a.Library.Has(items[i].ID)
+	}
+}
+
+func clip(items []jm.Summary, n int) []jm.Summary {
+	if len(items) > n {
+		return items[:n]
+	}
+	if items == nil {
+		return []jm.Summary{}
+	}
+	return items
+}
+
+// usefulTags is true when the list carries more than one shared category label.
+// Category shelves often repeat the same category title on every item.
+func usefulTags(items []jm.Summary) bool {
+	counts := map[string]int{}
+	withTags := 0
+	for _, item := range items {
+		seen := map[string]bool{}
+		for _, tag := range item.Tags {
+			tag = strings.TrimSpace(tag)
+			if tag == "" || seen[tag] {
+				continue
+			}
+			seen[tag] = true
+			counts[tag]++
+		}
+		if len(seen) > 0 {
+			withTags++
+		}
+	}
+	if withTags == 0 {
+		return false
+	}
+	for _, count := range counts {
+		if count < withTags {
+			return true
+		}
+	}
+	return false
+}
+
+func keywordSuggestions(items []jm.Summary) []string {
+	counts := map[string]int{}
+	var order []string
+	for _, item := range items {
+		seen := map[string]bool{}
+		for _, tag := range item.Tags {
+			tag = strings.TrimSpace(tag)
+			if tag == "" || seen[tag] || len([]rune(tag)) > 12 {
+				continue
+			}
+			seen[tag] = true
+			if counts[tag] == 0 {
+				order = append(order, tag)
+			}
+			counts[tag]++
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if counts[order[i]] == counts[order[j]] {
+			return order[i] < order[j]
+		}
+		return counts[order[i]] > counts[order[j]]
+	})
+	fallback := []string{"全彩", "中文", "剧情", "校园", "纯爱", "百合", "CG", "韩漫"}
+	for _, tag := range fallback {
+		if counts[tag] == 0 {
+			order = append(order, tag)
+			counts[tag] = 1
+		}
+		if len(order) >= 10 {
+			break
+		}
+	}
+	if len(order) > 10 {
+		order = order[:10]
+	}
+	if order == nil {
+		order = []string{}
+	}
+	return order
 }
 
 func (a *App) Enrich(ctx context.Context, ids []int64) (map[string]jm.Summary, error) {
@@ -444,24 +659,6 @@ func (a *App) CacheStatus() (int64, error) {
 
 func (a *App) ClearCache() (int64, error) {
 	return a.Covers.Clear()
-}
-
-func sortSummaries(items []jm.Summary, asc bool) {
-	for i := 1; i < len(items); i++ {
-		j := i
-		for j > 0 {
-			left, right := items[j-1].Favorites, items[j].Favorites
-			swap := left < right
-			if asc {
-				swap = left > right
-			}
-			if !swap {
-				break
-			}
-			items[j-1], items[j] = items[j], items[j-1]
-			j--
-		}
-	}
 }
 
 func newToken() (string, error) {

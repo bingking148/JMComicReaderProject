@@ -17,7 +17,7 @@ class BootScreen extends StatelessWidget {
           children: [
             Wordmark(),
             SizedBox(height: 18),
-            SizedBox(width: 120, child: ProgressRule(value: 0)),
+            SizedBox(width: 120, child: ProgressRule()),
           ],
         ),
       ),

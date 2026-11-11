@@ -36,13 +36,25 @@ class EngineClient {
     return Settings.fromJson(await _send('POST', '/v1/settings/domains/refresh', const {}));
   }
 
-  Future<SearchResult> search(String query, {int page = 1, String sort = 'latest'}) async {
+  Future<SearchResult> search(String query, {int page = 1, String order = 'mr', String time = 'a'}) async {
     return SearchResult.fromJson(await _send('POST', '/v1/search', {
       'query': query,
       'page': page,
-      'sort': sort,
+      'order': order,
+      'time': time,
     }));
   }
+
+  Future<SearchResult> browse({String category = '0', int page = 1, String order = 'mr', String time = 'a'}) async {
+    return SearchResult.fromJson(await _send('POST', '/v1/browse', {
+      'category': category,
+      'page': page,
+      'order': order,
+      'time': time,
+    }));
+  }
+
+  Future<DiscoverFeed> discover() async => DiscoverFeed.fromJson(await _send('GET', '/v1/discover'));
 
   Future<Map<int, Summary>> enrich(List<int> ids) async {
     if (ids.isEmpty) return const {};
@@ -93,12 +105,36 @@ class EngineClient {
     return asInt(body['imported']);
   }
 
+  Future<ImportReport> importPath(String path) async {
+    return ImportReport.fromJson(await _send('POST', '/v1/library/import', {'path': path}));
+  }
+
+  Future<StorageUse> storage() async => StorageUse.fromJson(await _send('GET', '/v1/storage'));
+
   Future<int> cacheBytes() async {
     final body = await _send('GET', '/v1/cache');
     return asInt(body['bytes']);
   }
 
   Future<void> clearCache() => _send('POST', '/v1/cache/clear', const {});
+
+  Future<DataRootChange> relocateData(String path, {required bool move}) async {
+    final uri = Uri.parse('$base/v1/data-root');
+    final response = await _http.post(
+      uri,
+      headers: headers,
+      body: jsonEncode({'path': path, 'mode': move ? 'move' : 'switch'}),
+    );
+    final decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw EngineException('引擎返回了无法识别的数据');
+    }
+    final change = DataRootChange.fromJson(decoded);
+    if (response.statusCode >= 400 && !change.restart) {
+      throw EngineException((decoded['error'] as String?) ?? '没能更改数据目录');
+    }
+    return change;
+  }
 
   Future<Map<String, dynamic>> _send(String method, String path, [Object? body]) async {
     final uri = Uri.parse('$base$path');
