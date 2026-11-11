@@ -16,6 +16,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _api;
   late final TextEditingController _images;
+  late final TextEditingController _proxy;
   int _cache = 0;
   int? _concurrency;
   String? _note;
@@ -25,10 +26,12 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _api = TextEditingController();
     _images = TextEditingController();
+    _proxy = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = SessionScope.of(context).settings;
       _api.text = settings.apiDomains.join('\n');
       _images.text = settings.imageDomains.join('\n');
+      _proxy.text = settings.httpProxy;
       _refreshCache();
     });
   }
@@ -37,6 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _api.dispose();
     _images.dispose();
+    _proxy.dispose();
     super.dispose();
   }
 
@@ -79,6 +83,15 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 16),
           const SectionLabel('图片域名'),
           TextField(controller: _images, maxLines: 5),
+          const SizedBox(height: 16),
+          const SectionLabel('HTTP 代理'),
+          const SizedBox(height: 6),
+          const Text(
+            '留空就是直连。填了才会走代理。没缓存过的内容第一次仍要等站点响应，看过的列表和封面会用本机缓存。',
+            style: TextStyle(color: InkColors.mute, height: 1.4),
+          ),
+          const SizedBox(height: 8),
+          TextField(controller: _proxy, decoration: const InputDecoration(hintText: 'http://127.0.0.1:7890')),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -88,6 +101,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) => _save(settings.copyWith(
               apiDomains: _lines(_api),
               imageDomains: _lines(_images),
+              httpProxy: _proxy.text.trim(),
               autoUpdateDomains: value,
             )),
           ),
@@ -106,6 +120,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     await _save(settings.copyWith(
                       apiDomains: _lines(_api),
                       imageDomains: _lines(_images),
+                      httpProxy: _proxy.text.trim(),
                       concurrency: value.round(),
                     ));
                     if (mounted) setState(() => _concurrency = null);
@@ -118,7 +133,11 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             children: [
               TextButton(
-                onPressed: () => _save(settings.copyWith(apiDomains: _lines(_api), imageDomains: _lines(_images))),
+                onPressed: () => _save(settings.copyWith(
+                  apiDomains: _lines(_api),
+                  imageDomains: _lines(_images),
+                  httpProxy: _proxy.text.trim(),
+                )),
                 child: const Text('保存域名'),
               ),
               TextButton(

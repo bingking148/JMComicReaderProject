@@ -2,8 +2,10 @@ package config
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -20,6 +22,8 @@ type Settings struct {
 	ReaderMode        string   `json:"readerMode"`
 	FitMode           string   `json:"fitMode"`
 	RTL               bool     `json:"rtl"`
+	// HTTPProxy is optional. Empty means a direct connection.
+	HTTPProxy string `json:"httpProxy,omitempty"`
 }
 
 // Public is what the UI is allowed to see and edit. DataDir is read-only.
@@ -145,7 +149,23 @@ func sanitize(in Settings) Settings {
 	if in.AppVersion == "" {
 		in.AppVersion = def.AppVersion
 	}
+	in.HTTPProxy = NormalizeProxy(in.HTTPProxy)
 	return in
+}
+
+// NormalizeProxy returns a usable http(s) proxy URL, or empty for a direct connection.
+// Anything that is not an http or https URL is treated as direct so a bad value
+// cannot force traffic through an unintended proxy.
+func NormalizeProxy(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return ""
+	}
+	return u.String()
 }
 
 func trimList(in []string, max int) []string {

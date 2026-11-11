@@ -78,6 +78,8 @@ func open(dataDir string, cat download.Catalog) (*App, error) {
 	var client *jm.Client
 	if cat == nil {
 		client = jm.NewClient(settings.APIDomains, settings.ImageDomains, settings.AppVersion, settings.Retry)
+		client.SetCacheDir(filepath.Join(dataDir, "cache", "api"))
+		client.SetProxy(settings.HTTPProxy)
 		cat = client
 	} else if c, ok := cat.(*jm.Client); ok {
 		client = c
@@ -145,6 +147,17 @@ func (a *App) Bootstrap(ctx context.Context) {
 			a.client.SetAPIDomains(domains)
 		}
 	}
+	// Remember the fastest official host so the next launch does not start on a dead line.
+	// A host that never answers is left at the end. This does not make an uncached
+	// first download instant when every live host is overseas.
+	if ranked := a.client.RankAPI(ctx); len(ranked) > 0 {
+		_, _ = a.Config.Update(func(s *config.Settings) { s.APIDomains = ranked })
+		a.client.SetAPIDomains(ranked)
+	}
+	if ranked := a.client.RankImages(ctx); len(ranked) > 0 {
+		_, _ = a.Config.Update(func(s *config.Settings) { s.ImageDomains = ranked })
+		a.client.SetImageDomains(ranked)
+	}
 	_ = a.client.Warmup(ctx)
 	if ver := a.client.Version(); ver != "" {
 		_, _ = a.Config.Update(func(s *config.Settings) { s.AppVersion = ver })
@@ -166,6 +179,7 @@ func (a *App) UpdateSettings(in config.Settings) (config.Public, error) {
 		a.client.SetAPIDomains(next.APIDomains)
 		a.client.SetImageDomains(next.ImageDomains)
 		a.client.SetRetry(next.Retry)
+		a.client.SetProxy(next.HTTPProxy)
 	}
 	return config.Public{Settings: next, DataDir: a.DataDir}, nil
 }
@@ -220,6 +234,14 @@ func (a *App) Search(ctx context.Context, query string, page int, sort string) (
 	res.Query = query
 	res.Page = page
 	_ = a.Library.AddSearch(query)
+	ids := make([]int64, 0, 12)
+	for _, item := range res.Items {
+		if len(ids) == 12 {
+			break
+		}
+		ids = append(ids, item.ID)
+	}
+	a.Covers.Prefetch(ids)
 	return res, nil
 }
 
