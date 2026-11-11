@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -235,7 +236,7 @@ func (a *App) RefreshDomains(ctx context.Context) (config.Public, error) {
 	return a.public(next), nil
 }
 
-func (a *App) Search(ctx context.Context, query string, page int, sort string) (jm.SearchResult, error) {
+func (a *App) Search(ctx context.Context, query string, page int, order, timeRange string) (jm.SearchResult, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return jm.SearchResult{}, &StatusError{Code: 400, Msg: "关键词不能为空"}
@@ -243,6 +244,8 @@ func (a *App) Search(ctx context.Context, query string, page int, sort string) (
 	if page < 1 {
 		page = 1
 	}
+	order = jm.NormalizeOrder(order)
+	timeRange = jm.NormalizeTime(timeRange)
 	if id, ok := jm.ParseJMID(query); ok && page == 1 {
 		album, err := a.Catalog.Album(ctx, id)
 		if err != nil {
@@ -253,23 +256,164 @@ func (a *App) Search(ctx context.Context, query string, page int, sort string) (
 		_ = a.Library.AddSearch(query)
 		return jm.SearchResult{Query: query, Page: 1, Total: 1, Direct: true, Items: []jm.Summary{item}}, nil
 	}
-	res, err := a.Catalog.Search(ctx, query, page)
+	res, err := a.Catalog.SearchOrdered(ctx, query, page, order, timeRange)
 	if err != nil {
 		return jm.SearchResult{}, err
 	}
-	switch sort {
-	case "favorites_asc":
-		sortSummaries(res.Items, true)
-	case "favorites_desc":
-		sortSummaries(res.Items, false)
-	}
-	for i := range res.Items {
-		res.Items[i].Downloaded = a.Library.Has(res.Items[i].ID)
-	}
+	a.markDownloaded(res.Items)
 	res.Query = query
 	res.Page = page
 	_ = a.Library.AddSearch(query)
 	return res, nil
+}
+
+func (a *App) Browse(ctx context.Context, page int, category, order, timeRange string) (jm.SearchResult, error) {
+	if page < 1 {
+		page = 1
+	}
+	res, err := a.Catalog.Browse(ctx, page, category, order, timeRange)
+	if err != nil {
+		return jm.SearchResult{}, err
+	}
+	a.markDownloaded(res.Items)
+	res.Page = page
+	return res, nil
+}
+
+func (a *App) Discover(ctx context.Context) (jm.Discover, error) {
+	latest, err := a.Browse(ctx, 1, "0", "mr", "t")
+	if err != nil || len(latest.Items) == 0 {
+		latest, err = a.Browse(ctx, 1, "0", "mr", "a")
+		if err != nil {
+			return jm.Discover{}, err
+		}
+	}
+	favorites, err := a.Browse(ctx, 1, "0", "tf", "a")
+	if err != nil {
+		return jm.Discover{}, err
+	}
+	latestItems := clip(latest.Items, 12)
+	favoriteItems := clip(favorites.Items, 12)
+	source := latestItems
+	if !usefulTags(source) {
+		ids := make([]int64, 0, 6)
+		for _, item := range source {
+			if len(ids) == 6 {
+				break
+			}
+			ids = append(ids, item.ID)
+		}
+		if details, err := a.Enrich(ctx, ids); err == nil {
+			copies := append([]jm.Summary(nil), source...)
+			for i := range copies {
+				if extra, ok := details[strconv.FormatInt(copies[i].ID, 10)]; ok && len(extra.Tags) > 0 {
+					copies[i].Tags = extra.Tags
+				}
+			}
+			if usefulTags(copies) {
+				source = copies
+			} else {
+				source = nil
+			}
+		} else {
+			source = nil
+		}
+	}
+	keywords := keywordSuggestions(source)
+	return jm.Discover{
+		Keywords:      keywords,
+		Categories:    jm.Categories(),
+		Latest:        latestItems,
+		MostFavorited: favoriteItems,
+	}, nil
+}
+
+func (a *App) markDownloaded(items []jm.Summary) {
+	for i := range items {
+		items[i].Downloaded = a.Library.Has(items[i].ID)
+	}
+}
+
+func clip(items []jm.Summary, n int) []jm.Summary {
+	if len(items) > n {
+		return items[:n]
+	}
+	if items == nil {
+		return []jm.Summary{}
+	}
+	return items
+}
+
+// usefulTags is true when the list carries more than one shared category label.
+// Category shelves often repeat the same category title on every item.
+func usefulTags(items []jm.Summary) bool {
+	counts := map[string]int{}
+	withTags := 0
+	for _, item := range items {
+		seen := map[string]bool{}
+		for _, tag := range item.Tags {
+			tag = strings.TrimSpace(tag)
+			if tag == "" || seen[tag] {
+				continue
+			}
+			seen[tag] = true
+			counts[tag]++
+		}
+		if len(seen) > 0 {
+			withTags++
+		}
+	}
+	if withTags == 0 {
+		return false
+	}
+	for _, count := range counts {
+		if count < withTags {
+			return true
+		}
+	}
+	return false
+}
+
+func keywordSuggestions(items []jm.Summary) []string {
+	counts := map[string]int{}
+	var order []string
+	for _, item := range items {
+		seen := map[string]bool{}
+		for _, tag := range item.Tags {
+			tag = strings.TrimSpace(tag)
+			if tag == "" || seen[tag] || len([]rune(tag)) > 12 {
+				continue
+			}
+			seen[tag] = true
+			if counts[tag] == 0 {
+				order = append(order, tag)
+			}
+			counts[tag]++
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if counts[order[i]] == counts[order[j]] {
+			return order[i] < order[j]
+		}
+		return counts[order[i]] > counts[order[j]]
+	})
+	fallback := []string{"全彩", "中文", "剧情", "校园", "纯爱", "百合", "CG", "韩漫"}
+	for _, tag := range fallback {
+		if counts[tag] == 0 {
+			order = append(order, tag)
+			counts[tag] = 1
+		}
+		if len(order) >= 10 {
+			break
+		}
+	}
+	if len(order) > 10 {
+		order = order[:10]
+	}
+	if order == nil {
+		order = []string{}
+	}
+	return order
 }
 
 func (a *App) Enrich(ctx context.Context, ids []int64) (map[string]jm.Summary, error) {
@@ -493,24 +637,6 @@ func (a *App) CacheStatus() (int64, error) {
 
 func (a *App) ClearCache() (int64, error) {
 	return a.Covers.Clear()
-}
-
-func sortSummaries(items []jm.Summary, asc bool) {
-	for i := 1; i < len(items); i++ {
-		j := i
-		for j > 0 {
-			left, right := items[j-1].Favorites, items[j].Favorites
-			swap := left < right
-			if asc {
-				swap = left > right
-			}
-			if !swap {
-				break
-			}
-			items[j-1], items[j] = items[j], items[j-1]
-			j--
-		}
-	}
 }
 
 func newToken() (string, error) {
