@@ -3,7 +3,16 @@
 本地 JM 漫画阅读器。2.0 起，搜索、详情、下载、缓存、书架和配置都由一个 **Go 引擎**完成；桌面和手机上的界面是 **Flutter**。手机应用自己带这份引擎，不需要电脑开着，也不用连同一 Wi-Fi。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.0.0)
+
+## 下载 v2.0.0
+
+正式版发布页：[v2.0.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.0.0)
+
+- [JMComicReader-2.0.0-arm64.apk](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-2.0.0-arm64.apk)：Android arm64
+- [JMComicReader-Setup-v2.0.0.exe](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-Setup-v2.0.0.exe)：Windows 安装程序
+
+安装后打开的是本机窗口。Windows 安装目录里主程序旁边有 `jmengine.exe`。不需要 Python，也不需要另一台电脑上的服务。手机安装 APK 后同样自己带引擎。
 
 ## 能做什么
 
@@ -90,14 +99,17 @@ cd app && flutter build linux
 
 **Windows**
 
-在 Windows 上：
+发布用的安装包是 `JMComicReader-Setup-v2.0.0.exe`，由 GitHub Actions 在 Windows 上生成。本地也可以编：
 
 ```bash
 cd engine
 set CGO_ENABLED=0
 go build -trimpath -ldflags "-s -w" -o ../app/bin/jmengine.exe ./cmd/jmengine
 cd ../app && flutter build windows
+ISCC /DAppVersion=2.0.0 app\windows\installer\JMComicReader.iss
 ```
+
+安装程序会把 `JMComicReader.exe` 和旁边的 `jmengine.exe` 一起装进 `%LOCALAPPDATA%\Programs\JMComicReader`。
 
 **macOS**
 

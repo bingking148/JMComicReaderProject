@@ -9,12 +9,14 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/bingking148/JMComicReaderProject/engine/internal/version"
 	"github.com/bingking148/JMComicReaderProject/engine/jmengine"
 )
 
 func main() {
 	data := flag.String("data", "", "用户数据目录")
 	flag.Parse()
+	fmt.Fprintf(os.Stderr, "JMComicReader engine %s\n", version.Current)
 	dir := *data
 	if dir == "" {
 		dir = defaultDataDir()

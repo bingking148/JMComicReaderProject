@@ -1,10 +1,10 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(jm_comic_reader LANGUAGES CXX)
+project(JMComicReader LANGUAGES CXX VERSION 2.0.0)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "jm_comic_reader")
+set(BINARY_NAME "JMComicReader")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

@@ -13,6 +13,7 @@ import (
 	"github.com/bingking148/JMComicReaderProject/engine/internal/config"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/library"
+	"github.com/bingking148/JMComicReaderProject/engine/internal/version"
 )
 
 // Backend is the in-process product surface the local HTTP API exposes.
@@ -96,7 +97,7 @@ func (s *server) allowedBeforeAge(r *http.Request) bool {
 }
 
 func (s *server) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": "2.0.0", "engine": "go"})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": version.Current, "engine": "go"})
 }
 
 func (s *server) getSettings(w http.ResponseWriter, _ *http.Request) {
