@@ -17,9 +17,14 @@ type Settings struct {
 	AppVersion        string   `json:"appVersion"`
 	AutoUpdateDomains bool     `json:"autoUpdateDomains"`
 	AgeAccepted       bool     `json:"ageAccepted"`
-	ReaderMode        string   `json:"readerMode"`
-	FitMode           string   `json:"fitMode"`
-	RTL               bool     `json:"rtl"`
+	ReaderMode        string  `json:"readerMode"`
+	FitMode           string  `json:"fitMode"`
+	RTL               bool    `json:"rtl"`
+	ReaderBackground  string  `json:"readerBackground"`
+	KeepAwake         string  `json:"keepAwake"`
+	Orientation       string  `json:"orientation"`
+	ReaderDim         float64 `json:"readerDim"`
+	StripSpeed        float64 `json:"stripSpeed"`
 }
 
 // Public is what the UI is allowed to see and edit. DataDir is read-only.
@@ -138,9 +143,30 @@ func sanitize(in Settings) Settings {
 		in.ReaderMode = "smart"
 	}
 	switch in.FitMode {
-	case "width", "contain":
+	case "width", "contain", "height":
 	default:
 		in.FitMode = "width"
+	}
+	switch in.ReaderBackground {
+	case "ink", "paper", "gray":
+	default:
+		in.ReaderBackground = "ink"
+	}
+	switch in.KeepAwake {
+	case "", "on", "off":
+	default:
+		in.KeepAwake = ""
+	}
+	switch in.Orientation {
+	case "", "free", "portrait", "landscape":
+	default:
+		in.Orientation = "free"
+	}
+	if in.ReaderDim < 0 || in.ReaderDim > 0.6 {
+		in.ReaderDim = 0
+	}
+	if in.StripSpeed < 0 || in.StripSpeed > 240 {
+		in.StripSpeed = 0
 	}
 	if in.AppVersion == "" {
 		in.AppVersion = def.AppVersion
