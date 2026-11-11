@@ -270,6 +270,7 @@ class Settings {
     this.readerMode = 'smart',
     this.fitMode = 'width',
     this.rtl = false,
+    this.httpProxy = '',
     this.dataDir = '',
   });
 
@@ -283,6 +284,7 @@ class Settings {
   final String readerMode;
   final String fitMode;
   final bool rtl;
+  final String httpProxy;
   final String dataDir;
 
   Settings copyWith({
@@ -295,6 +297,7 @@ class Settings {
     String? readerMode,
     String? fitMode,
     bool? rtl,
+    String? httpProxy,
   }) {
     return Settings(
       apiDomains: apiDomains ?? this.apiDomains,
@@ -307,6 +310,7 @@ class Settings {
       readerMode: readerMode ?? this.readerMode,
       fitMode: fitMode ?? this.fitMode,
       rtl: rtl ?? this.rtl,
+      httpProxy: httpProxy ?? this.httpProxy,
       dataDir: dataDir,
     );
   }
@@ -322,6 +326,7 @@ class Settings {
         readerMode: (json['readerMode'] ?? 'smart') as String,
         fitMode: (json['fitMode'] ?? 'width') as String,
         rtl: json['rtl'] == true,
+        httpProxy: (json['httpProxy'] ?? '') as String,
         dataDir: (json['dataDir'] ?? '') as String,
       );
 
@@ -336,6 +341,7 @@ class Settings {
         'readerMode': readerMode,
         'fitMode': fitMode,
         'rtl': rtl,
+        'httpProxy': httpProxy,
         'dataDir': dataDir,
       };
 }
