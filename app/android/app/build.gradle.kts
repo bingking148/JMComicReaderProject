@@ -25,7 +25,7 @@ android {
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
         // flag during build.
-        // pubspec version 2.0.0+20000 -> versionName 2.0.0, versionCode 20000
+        // pubspec version 2.1.0+21000 -> versionName 2.1.0, versionCode 21000
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
