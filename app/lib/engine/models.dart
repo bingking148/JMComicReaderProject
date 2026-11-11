@@ -145,6 +145,13 @@ class Job {
   bool get active => status == 'running' || status == 'queued';
   double get fraction => total <= 0 ? 0 : (done / total).clamp(0, 1);
 
+  /// Progress bar for a download row. Only an in-flight job with no measured
+  /// progress keeps moving; canceled, paused, and failed rows stay still.
+  double? get track {
+    if (active && fraction <= 0) return null;
+    return fraction;
+  }
+
   factory Job.fromJson(Map<String, dynamic> json) => Job(
         albumId: asInt(json['albumId']),
         title: (json['title'] ?? '') as String,

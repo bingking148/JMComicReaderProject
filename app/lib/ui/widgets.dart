@@ -189,8 +189,10 @@ class QuietMessage extends StatelessWidget {
 }
 
 class ProgressRule extends StatelessWidget {
-  const ProgressRule({required this.value, super.key});
-  final double value;
+  const ProgressRule({this.value, super.key});
+
+  /// Null keeps the indicator moving. Zero is an empty, still bar.
+  final double? value;
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +200,7 @@ class ProgressRule extends StatelessWidget {
       child: SizedBox(
         height: 2,
         child: LinearProgressIndicator(
-          value: value <= 0 ? null : value,
+          value: value,
           color: InkColors.cinnabar,
           backgroundColor: InkColors.line,
         ),

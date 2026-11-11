@@ -116,7 +116,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: ProgressRule(value: 0));
+    if (_loading) return const Center(child: ProgressRule());
     if (_error != null) {
       return QuietMessage(title: '没有检索到', detail: _error);
     }
