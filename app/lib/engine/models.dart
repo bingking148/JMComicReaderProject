@@ -21,7 +21,14 @@ class Summary {
   final bool downloaded;
   final bool partial;
 
-  Summary copyWith({int? favorites, List<String>? tags, String? author, String? description, int? pageCount, bool? downloaded}) {
+  Summary copyWith({
+    int? favorites,
+    List<String>? tags,
+    String? author,
+    String? description,
+    int? pageCount,
+    bool? downloaded,
+  }) {
     return Summary(
       id: id,
       title: title,
@@ -51,18 +58,23 @@ class Summary {
 }
 
 class ChapterRef {
-  const ChapterRef({required this.id, required this.name, required this.sort, this.pages = 0});
+  const ChapterRef({
+    required this.id,
+    required this.name,
+    required this.sort,
+    this.pages = 0,
+  });
   final int id;
   final String name;
   final int sort;
   final int pages;
 
   factory ChapterRef.fromJson(Map<String, dynamic> json) => ChapterRef(
-        id: asInt(json['id']),
-        name: (json['name'] ?? '') as String,
-        sort: asInt(json['sort']),
-        pages: asInt(json['pages']),
-      );
+    id: asInt(json['id']),
+    name: (json['name'] ?? '') as String,
+    sort: asInt(json['sort']),
+    pages: asInt(json['pages']),
+  );
 }
 
 class Album {
@@ -101,9 +113,9 @@ class ShelfCategory {
   final String name;
 
   factory ShelfCategory.fromJson(Map<String, dynamic> json) => ShelfCategory(
-        id: (json['id'] ?? '') as String,
-        name: (json['name'] ?? '') as String,
-      );
+    id: (json['id'] ?? '') as String,
+    name: (json['name'] ?? '') as String,
+  );
 }
 
 class DiscoverFeed {
@@ -120,17 +132,17 @@ class DiscoverFeed {
   final List<Summary> mostFavorited;
 
   factory DiscoverFeed.fromJson(Map<String, dynamic> json) => DiscoverFeed(
-        keywords: stringList(json['keywords']),
-        categories: (json['categories'] as List<dynamic>? ?? const [])
-            .map((item) => ShelfCategory.fromJson(item as Map<String, dynamic>))
-            .toList(),
-        latest: (json['latest'] as List<dynamic>? ?? const [])
-            .map((item) => Summary.fromJson(item as Map<String, dynamic>))
-            .toList(),
-        mostFavorited: (json['mostFavorited'] as List<dynamic>? ?? const [])
-            .map((item) => Summary.fromJson(item as Map<String, dynamic>))
-            .toList(),
-      );
+    keywords: stringList(json['keywords']),
+    categories: (json['categories'] as List<dynamic>? ?? const [])
+        .map((item) => ShelfCategory.fromJson(item as Map<String, dynamic>))
+        .toList(),
+    latest: (json['latest'] as List<dynamic>? ?? const [])
+        .map((item) => Summary.fromJson(item as Map<String, dynamic>))
+        .toList(),
+    mostFavorited: (json['mostFavorited'] as List<dynamic>? ?? const [])
+        .map((item) => Summary.fromJson(item as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class SearchResult {
@@ -191,14 +203,14 @@ class Job {
   }
 
   factory Job.fromJson(Map<String, dynamic> json) => Job(
-        albumId: asInt(json['albumId']),
-        title: (json['title'] ?? '') as String,
-        status: (json['status'] ?? '') as String,
-        done: asInt(json['done']),
-        total: asInt(json['total']),
-        message: (json['message'] ?? '') as String,
-        error: (json['error'] ?? '') as String,
-      );
+    albumId: asInt(json['albumId']),
+    title: (json['title'] ?? '') as String,
+    status: (json['status'] ?? '') as String,
+    done: asInt(json['done']),
+    total: asInt(json['total']),
+    message: (json['message'] ?? '') as String,
+    error: (json['error'] ?? '') as String,
+  );
 }
 
 class Comic {
@@ -233,33 +245,39 @@ class Comic {
   final int page;
 
   factory Comic.fromJson(Map<String, dynamic> json) => Comic(
-        id: asInt(json['id']),
-        title: (json['title'] ?? '') as String,
-        author: (json['author'] ?? '') as String,
-        tags: stringList(json['tags']),
-        pages: asInt(json['pages']),
-        coverPath: (json['coverPath'] ?? '') as String,
-        dir: (json['dir'] ?? '') as String,
-        downloadTime: (json['downloadTime'] ?? '') as String,
-        lastRead: (json['lastRead'] ?? '') as String,
-        fileSize: asInt(json['fileSize']),
-        status: (json['status'] ?? '') as String,
-        chapterId: (json['chapterId'] ?? '') as String,
-        page: asInt(json['page']) == 0 ? 1 : asInt(json['page']),
-      );
+    id: asInt(json['id']),
+    title: (json['title'] ?? '') as String,
+    author: (json['author'] ?? '') as String,
+    tags: stringList(json['tags']),
+    pages: asInt(json['pages']),
+    coverPath: (json['coverPath'] ?? '') as String,
+    dir: (json['dir'] ?? '') as String,
+    downloadTime: (json['downloadTime'] ?? '') as String,
+    lastRead: (json['lastRead'] ?? '') as String,
+    fileSize: asInt(json['fileSize']),
+    status: (json['status'] ?? '') as String,
+    chapterId: (json['chapterId'] ?? '') as String,
+    page: asInt(json['page']) == 0 ? 1 : asInt(json['page']),
+  );
 }
 
 class ReaderChapter {
-  const ReaderChapter({required this.id, required this.name, required this.pages});
+  const ReaderChapter({
+    required this.id,
+    required this.name,
+    required this.pages,
+  });
   final String id;
   final String name;
   final List<String> pages;
 
   factory ReaderChapter.fromJson(Map<String, dynamic> json) => ReaderChapter(
-        id: '${json['id'] ?? ''}',
-        name: (json['name'] ?? '') as String,
-        pages: (json['pages'] as List<dynamic>? ?? const []).map((e) => e as String).toList(),
-      );
+    id: '${json['id'] ?? ''}',
+    name: (json['name'] ?? '') as String,
+    pages: (json['pages'] as List<dynamic>? ?? const [])
+        .map((e) => e as String)
+        .toList(),
+  );
 }
 
 class ReaderDoc {
@@ -321,6 +339,7 @@ class Settings {
     this.readerDim = 0,
     this.stripSpeed = 0,
     this.keepScreenOn = true,
+    this.httpProxy = '',
     this.dataDir = '',
     this.productVersion = '',
   });
@@ -341,6 +360,7 @@ class Settings {
   final double readerDim;
   final double stripSpeed;
   final bool keepScreenOn;
+  final String httpProxy;
   final String dataDir;
   final String productVersion;
 
@@ -366,6 +386,7 @@ class Settings {
     double? readerDim,
     double? stripSpeed,
     bool? keepScreenOn,
+    String? httpProxy,
   }) {
     return Settings(
       apiDomains: apiDomains ?? this.apiDomains,
@@ -384,56 +405,66 @@ class Settings {
       readerDim: readerDim ?? this.readerDim,
       stripSpeed: stripSpeed ?? this.stripSpeed,
       keepScreenOn: keepScreenOn ?? this.keepScreenOn,
+      httpProxy: httpProxy ?? this.httpProxy,
       dataDir: dataDir,
       productVersion: productVersion,
     );
   }
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
-        apiDomains: stringList(json['apiDomains']),
-        imageDomains: stringList(json['imageDomains']),
-        concurrency: asInt(json['concurrency']) == 0 ? 5 : asInt(json['concurrency']),
-        retry: asInt(json['retry']) == 0 ? 5 : asInt(json['retry']),
-        appVersion: (json['appVersion'] ?? '') as String,
-        autoUpdateDomains: json['autoUpdateDomains'] != false,
-        ageAccepted: json['ageAccepted'] == true,
-        readerMode: (json['readerMode'] ?? 'smart') as String,
-        fitMode: (json['fitMode'] ?? 'width') as String,
-        rtl: json['rtl'] == true,
-        readerBackground: (json['readerBackground'] ?? 'ink') as String,
-        keepAwake: (json['keepAwake'] ?? '') as String,
-        orientation: (json['orientation'] ?? 'free') as String,
-        readerDim: (json['readerDim'] as num?)?.toDouble() ?? 0,
-        stripSpeed: (json['stripSpeed'] as num?)?.toDouble() ?? 0,
-        keepScreenOn: json['keepScreenOn'] != false,
-        dataDir: (json['dataDir'] ?? '') as String,
-        productVersion: (json['productVersion'] ?? '') as String,
-      );
+    apiDomains: stringList(json['apiDomains']),
+    imageDomains: stringList(json['imageDomains']),
+    concurrency: asInt(json['concurrency']) == 0
+        ? 5
+        : asInt(json['concurrency']),
+    retry: asInt(json['retry']) == 0 ? 5 : asInt(json['retry']),
+    appVersion: (json['appVersion'] ?? '') as String,
+    autoUpdateDomains: json['autoUpdateDomains'] != false,
+    ageAccepted: json['ageAccepted'] == true,
+    readerMode: (json['readerMode'] ?? 'smart') as String,
+    fitMode: (json['fitMode'] ?? 'width') as String,
+    rtl: json['rtl'] == true,
+    readerBackground: (json['readerBackground'] ?? 'ink') as String,
+    keepAwake: (json['keepAwake'] ?? '') as String,
+    orientation: (json['orientation'] ?? 'free') as String,
+    readerDim: (json['readerDim'] as num?)?.toDouble() ?? 0,
+    stripSpeed: (json['stripSpeed'] as num?)?.toDouble() ?? 0,
+    keepScreenOn: json['keepScreenOn'] != false,
+    httpProxy: (json['httpProxy'] ?? '') as String,
+    dataDir: (json['dataDir'] ?? '') as String,
+    productVersion: (json['productVersion'] ?? '') as String,
+  );
 
   Map<String, dynamic> toJson() => {
-        'apiDomains': apiDomains,
-        'imageDomains': imageDomains,
-        'concurrency': concurrency,
-        'retry': retry,
-        'appVersion': appVersion,
-        'autoUpdateDomains': autoUpdateDomains,
-        'ageAccepted': ageAccepted,
-        'readerMode': readerMode,
-        'fitMode': fitMode,
-        'rtl': rtl,
-        'readerBackground': readerBackground,
-        'keepAwake': keepAwake,
-        'orientation': orientation,
-        'readerDim': readerDim,
-        'stripSpeed': stripSpeed,
-        'keepScreenOn': keepScreenOn,
-        'dataDir': dataDir,
-        'productVersion': productVersion,
-      };
+    'apiDomains': apiDomains,
+    'imageDomains': imageDomains,
+    'concurrency': concurrency,
+    'retry': retry,
+    'appVersion': appVersion,
+    'autoUpdateDomains': autoUpdateDomains,
+    'ageAccepted': ageAccepted,
+    'readerMode': readerMode,
+    'fitMode': fitMode,
+    'rtl': rtl,
+    'readerBackground': readerBackground,
+    'keepAwake': keepAwake,
+    'orientation': orientation,
+    'readerDim': readerDim,
+    'stripSpeed': stripSpeed,
+    'keepScreenOn': keepScreenOn,
+    'httpProxy': httpProxy,
+    'dataDir': dataDir,
+    'productVersion': productVersion,
+  };
 }
 
 class StorageUse {
-  const StorageUse({this.libraryBytes = 0, this.cacheBytes = 0, this.comicsDir = '', this.dataDir = ''});
+  const StorageUse({
+    this.libraryBytes = 0,
+    this.cacheBytes = 0,
+    this.comicsDir = '',
+    this.dataDir = '',
+  });
 
   final int libraryBytes;
   final int cacheBytes;
@@ -441,15 +472,21 @@ class StorageUse {
   final String dataDir;
 
   factory StorageUse.fromJson(Map<String, dynamic> json) => StorageUse(
-        libraryBytes: asInt(json['libraryBytes']),
-        cacheBytes: asInt(json['cacheBytes']),
-        comicsDir: (json['comicsDir'] ?? '') as String,
-        dataDir: (json['dataDir'] ?? '') as String,
-      );
+    libraryBytes: asInt(json['libraryBytes']),
+    cacheBytes: asInt(json['cacheBytes']),
+    comicsDir: (json['comicsDir'] ?? '') as String,
+    dataDir: (json['dataDir'] ?? '') as String,
+  );
 }
 
 class ImportReport {
-  const ImportReport({this.imported = 0, this.merged = 0, this.skipped = 0, this.failed = 0, this.lines = const []});
+  const ImportReport({
+    this.imported = 0,
+    this.merged = 0,
+    this.skipped = 0,
+    this.failed = 0,
+    this.lines = const [],
+  });
 
   final int imported;
   final int merged;
@@ -500,12 +537,12 @@ class DataRootChange {
   final bool restart;
 
   factory DataRootChange.fromJson(Map<String, dynamic> json) => DataRootChange(
-        oldPath: (json['oldPath'] ?? '') as String,
-        newPath: (json['newPath'] ?? '') as String,
-        error: (json['error'] ?? '') as String,
-        moved: json['moved'] == true,
-        restart: json['restart'] == true,
-      );
+    oldPath: (json['oldPath'] ?? '') as String,
+    newPath: (json['newPath'] ?? '') as String,
+    error: (json['error'] ?? '') as String,
+    moved: json['moved'] == true,
+    restart: json['restart'] == true,
+  );
 }
 
 int asInt(Object? value) {
@@ -542,6 +579,8 @@ String compactCount(int n) {
 String formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
 }
