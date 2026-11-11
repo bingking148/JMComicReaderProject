@@ -20,6 +20,12 @@ void main() {
     expect(resolveSmart(aspect: 1.4, width: 800, height: 360), ReadMode.single);
   });
 
+  test('fit names round-trip', () {
+    expect(fitModeFromName(fitModeName(FitMode.height)), FitMode.height);
+    expect(fitModeFromName(fitModeName(FitMode.contain)), FitMode.contain);
+    expect(fitModeLabel(FitMode.width), '适宽');
+  });
+
   test('JM ids accept a bare number or a JM prefix', () {
     expect(parseJmId('438516'), 438516);
     expect(parseJmId('JM438516'), 438516);

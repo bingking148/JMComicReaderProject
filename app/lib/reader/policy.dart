@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 enum ReadMode { smart, single, spread, strip }
 
-enum FitMode { width, contain }
+enum FitMode { width, contain, height }
 
 ReadMode readModeFromName(String name) {
   switch (name) {
@@ -43,11 +43,38 @@ String readModeLabel(ReadMode mode) {
   }
 }
 
-FitMode fitModeFromName(String name) => name == 'contain' ? FitMode.contain : FitMode.width;
+FitMode fitModeFromName(String name) {
+  switch (name) {
+    case 'contain':
+      return FitMode.contain;
+    case 'height':
+      return FitMode.height;
+    default:
+      return FitMode.width;
+  }
+}
 
-String fitModeName(FitMode mode) => mode == FitMode.contain ? 'contain' : 'width';
+String fitModeName(FitMode mode) {
+  switch (mode) {
+    case FitMode.contain:
+      return 'contain';
+    case FitMode.height:
+      return 'height';
+    case FitMode.width:
+      return 'width';
+  }
+}
 
-String fitModeLabel(FitMode mode) => mode == FitMode.contain ? '完整' : '适宽';
+String fitModeLabel(FitMode mode) {
+  switch (mode) {
+    case FitMode.contain:
+      return '整页';
+    case FitMode.height:
+      return '适高';
+    case FitMode.width:
+      return '适宽';
+  }
+}
 
 /// Smart layout: very tall pages scroll as a strip; a wide, short viewport
 /// shows a spread; everything else stays a single readable page.

@@ -270,6 +270,11 @@ class Settings {
     this.readerMode = 'smart',
     this.fitMode = 'width',
     this.rtl = false,
+    this.readerBackground = 'ink',
+    this.keepAwake = '',
+    this.orientation = 'free',
+    this.readerDim = 0,
+    this.stripSpeed = 0,
     this.dataDir = '',
   });
 
@@ -283,7 +288,14 @@ class Settings {
   final String readerMode;
   final String fitMode;
   final bool rtl;
+  final String readerBackground;
+  final String keepAwake;
+  final String orientation;
+  final double readerDim;
+  final double stripSpeed;
   final String dataDir;
+
+  bool get screenStaysOn => keepAwake != 'off';
 
   Settings copyWith({
     List<String>? apiDomains,
@@ -295,6 +307,11 @@ class Settings {
     String? readerMode,
     String? fitMode,
     bool? rtl,
+    String? readerBackground,
+    String? keepAwake,
+    String? orientation,
+    double? readerDim,
+    double? stripSpeed,
   }) {
     return Settings(
       apiDomains: apiDomains ?? this.apiDomains,
@@ -307,6 +324,11 @@ class Settings {
       readerMode: readerMode ?? this.readerMode,
       fitMode: fitMode ?? this.fitMode,
       rtl: rtl ?? this.rtl,
+      readerBackground: readerBackground ?? this.readerBackground,
+      keepAwake: keepAwake ?? this.keepAwake,
+      orientation: orientation ?? this.orientation,
+      readerDim: readerDim ?? this.readerDim,
+      stripSpeed: stripSpeed ?? this.stripSpeed,
       dataDir: dataDir,
     );
   }
@@ -322,6 +344,11 @@ class Settings {
         readerMode: (json['readerMode'] ?? 'smart') as String,
         fitMode: (json['fitMode'] ?? 'width') as String,
         rtl: json['rtl'] == true,
+        readerBackground: (json['readerBackground'] ?? 'ink') as String,
+        keepAwake: (json['keepAwake'] ?? '') as String,
+        orientation: (json['orientation'] ?? 'free') as String,
+        readerDim: (json['readerDim'] as num?)?.toDouble() ?? 0,
+        stripSpeed: (json['stripSpeed'] as num?)?.toDouble() ?? 0,
         dataDir: (json['dataDir'] ?? '') as String,
       );
 
@@ -336,6 +363,11 @@ class Settings {
         'readerMode': readerMode,
         'fitMode': fitMode,
         'rtl': rtl,
+        'readerBackground': readerBackground,
+        'keepAwake': keepAwake,
+        'orientation': orientation,
+        'readerDim': readerDim,
+        'stripSpeed': stripSpeed,
         'dataDir': dataDir,
       };
 }
