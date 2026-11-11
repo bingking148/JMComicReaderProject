@@ -164,7 +164,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 28),
           const SectionLabel('关于'),
           const SizedBox(height: 8),
-          Text('JMComicReader ${settings.appVersion.isEmpty ? '2.0.0' : settings.appVersion}', style: const TextStyle(color: InkColors.dim)),
+          const Text('JMComicReader 2.1.0', style: TextStyle(color: InkColors.dim)),
           const SizedBox(height: 8),
           const Text(
             '本应用仅供学习交流。漫画来自网络，程序不会把内容上传到任何服务器。请遵守所在地法律，勿用于非法用途。阅读前需确认已年满 18 岁。',
