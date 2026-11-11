@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../engine/client.dart';
 import '../engine/models.dart';
@@ -76,6 +77,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _bindControllers();
       _armChrome();
       _precache();
+      _applyWake();
     } on EngineException catch (err) {
       if (!mounted) return;
       setState(() => _error = err.message);
@@ -121,7 +123,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     cache.maximumSize = _cacheSize;
     cache.maximumSizeBytes = _cacheBytes;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    unawaited(WakelockPlus.disable());
     super.dispose();
+  }
+
+  void _applyWake() {
+    final on = SessionScope.of(context).settings.keepScreenOn;
+    unawaited(on ? WakelockPlus.enable() : WakelockPlus.disable());
   }
 
   ReadMode _effective(BoxConstraints constraints) {

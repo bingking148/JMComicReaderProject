@@ -270,7 +270,9 @@ class Settings {
     this.readerMode = 'smart',
     this.fitMode = 'width',
     this.rtl = false,
+    this.keepScreenOn = true,
     this.dataDir = '',
+    this.productVersion = '',
   });
 
   final List<String> apiDomains;
@@ -283,7 +285,9 @@ class Settings {
   final String readerMode;
   final String fitMode;
   final bool rtl;
+  final bool keepScreenOn;
   final String dataDir;
+  final String productVersion;
 
   Settings copyWith({
     List<String>? apiDomains,
@@ -295,6 +299,7 @@ class Settings {
     String? readerMode,
     String? fitMode,
     bool? rtl,
+    bool? keepScreenOn,
   }) {
     return Settings(
       apiDomains: apiDomains ?? this.apiDomains,
@@ -307,7 +312,9 @@ class Settings {
       readerMode: readerMode ?? this.readerMode,
       fitMode: fitMode ?? this.fitMode,
       rtl: rtl ?? this.rtl,
+      keepScreenOn: keepScreenOn ?? this.keepScreenOn,
       dataDir: dataDir,
+      productVersion: productVersion,
     );
   }
 
@@ -322,7 +329,9 @@ class Settings {
         readerMode: (json['readerMode'] ?? 'smart') as String,
         fitMode: (json['fitMode'] ?? 'width') as String,
         rtl: json['rtl'] == true,
+        keepScreenOn: json['keepScreenOn'] != false,
         dataDir: (json['dataDir'] ?? '') as String,
+        productVersion: (json['productVersion'] ?? '') as String,
       );
 
   Map<String, dynamic> toJson() => {
@@ -336,8 +345,62 @@ class Settings {
         'readerMode': readerMode,
         'fitMode': fitMode,
         'rtl': rtl,
+        'keepScreenOn': keepScreenOn,
         'dataDir': dataDir,
+        'productVersion': productVersion,
       };
+}
+
+class StorageUse {
+  const StorageUse({this.libraryBytes = 0, this.cacheBytes = 0, this.comicsDir = '', this.dataDir = ''});
+
+  final int libraryBytes;
+  final int cacheBytes;
+  final String comicsDir;
+  final String dataDir;
+
+  factory StorageUse.fromJson(Map<String, dynamic> json) => StorageUse(
+        libraryBytes: asInt(json['libraryBytes']),
+        cacheBytes: asInt(json['cacheBytes']),
+        comicsDir: (json['comicsDir'] ?? '') as String,
+        dataDir: (json['dataDir'] ?? '') as String,
+      );
+}
+
+class ImportReport {
+  const ImportReport({this.imported = 0, this.merged = 0, this.skipped = 0, this.failed = 0, this.lines = const []});
+
+  final int imported;
+  final int merged;
+  final int skipped;
+  final int failed;
+  final List<String> lines;
+
+  String get summary {
+    final parts = <String>[
+      if (imported > 0) '导入 $imported 本',
+      if (merged > 0) '补充 $merged 本',
+      if (skipped > 0) '跳过 $skipped 本',
+      if (failed > 0) '失败 $failed 本',
+    ];
+    if (parts.isEmpty) return '没有变化';
+    return parts.join('，');
+  }
+
+  factory ImportReport.fromJson(Map<String, dynamic> json) {
+    final items = (json['items'] as List<dynamic>? ?? const []);
+    return ImportReport(
+      imported: asInt(json['imported']),
+      merged: asInt(json['merged']),
+      skipped: asInt(json['skipped']),
+      failed: asInt(json['failed']),
+      lines: [
+        for (final item in items)
+          if (item is Map<String, dynamic>)
+            '${item['title'] ?? item['id']}：${item['detail'] ?? item['action'] ?? ''}',
+      ],
+    );
+  }
 }
 
 class DataRootChange {

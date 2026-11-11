@@ -199,7 +199,11 @@ func (a *App) Relocate(path, mode string) (dataroot.Result, error) {
 func (a *App) AgeAccepted() bool { return a.Config.Get().AgeAccepted }
 
 func (a *App) Settings() config.Public {
-	return config.Public{Settings: a.Config.Get(), DataDir: a.DataDir}
+	return a.public(a.Config.Get())
+}
+
+func (a *App) public(s config.Settings) config.Public {
+	return config.Public{Settings: s, DataDir: a.DataDir, ProductVersion: version.Current}
 }
 
 func (a *App) UpdateSettings(in config.Settings) (config.Public, error) {
@@ -212,7 +216,7 @@ func (a *App) UpdateSettings(in config.Settings) (config.Public, error) {
 		a.client.SetImageDomains(next.ImageDomains)
 		a.client.SetRetry(next.Retry)
 	}
-	return config.Public{Settings: next, DataDir: a.DataDir}, nil
+	return a.public(next), nil
 }
 
 func (a *App) RefreshDomains(ctx context.Context) (config.Public, error) {
@@ -228,7 +232,7 @@ func (a *App) RefreshDomains(ctx context.Context) (config.Public, error) {
 		return config.Public{}, err
 	}
 	a.client.SetAPIDomains(domains)
-	return config.Public{Settings: next, DataDir: a.DataDir}, nil
+	return a.public(next), nil
 }
 
 func (a *App) Search(ctx context.Context, query string, page int, sort string) (jm.SearchResult, error) {
