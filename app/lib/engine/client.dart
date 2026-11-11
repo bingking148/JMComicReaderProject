@@ -93,6 +93,12 @@ class EngineClient {
     return asInt(body['imported']);
   }
 
+  Future<ImportReport> importPath(String path) async {
+    return ImportReport.fromJson(await _send('POST', '/v1/library/import', {'path': path}));
+  }
+
+  Future<StorageUse> storage() async => StorageUse.fromJson(await _send('GET', '/v1/storage'));
+
   Future<int> cacheBytes() async {
     final body = await _send('GET', '/v1/cache');
     return asInt(body['bytes']);

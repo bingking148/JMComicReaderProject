@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../engine/client.dart';
 import '../engine/models.dart';
@@ -18,11 +21,14 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _api;
   late final TextEditingController _images;
-  int _cache = 0;
+  late final TextEditingController _dataDir;
   int? _concurrency;
   String? _note;
-  late final TextEditingController _dataDir;
   bool _movingData = false;
+  bool _busy = false;
+  StorageUse _storage = const StorageUse();
+
+  static const _releases = 'https://github.com/bingking148/JMComicReaderProject/releases';
 
   @override
   void initState() {
@@ -35,7 +41,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _api.text = settings.apiDomains.join('\n');
       _images.text = settings.imageDomains.join('\n');
       _dataDir.text = settings.dataDir;
-      _refreshCache();
+      _refreshStorage();
     });
   }
 
@@ -48,6 +54,29 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   bool get _canChooseDataDir => !Platform.isAndroid && !Platform.isIOS;
+
+  List<String> _lines(TextEditingController controller) {
+    return controller.text.split(RegExp(r'\s+')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  }
+
+  Future<void> _save(Settings next) async {
+    try {
+      await SessionScope.of(context).saveSettings(next);
+      if (!mounted) return;
+      setState(() => _note = '已保存');
+    } on EngineException catch (err) {
+      if (!mounted) return;
+      setState(() => _note = err.message);
+    }
+  }
+
+  Future<void> _refreshStorage() async {
+    try {
+      final usage = await SessionScope.of(context).api.storage();
+      if (!mounted) return;
+      setState(() => _storage = usage);
+    } catch (_) {}
+  }
 
   Future<void> _changeDataDir(String current) async {
     final next = _dataDir.text.trim();
@@ -78,6 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       _dataDir.text = saved;
       setState(() => _note = choice == 'move' ? '数据已移动到新目录' : '已改用新目录，旧目录仍保留');
+      await _refreshStorage();
     } on EngineException catch (err) {
       if (!mounted) return;
       setState(() => _note = err.message);
@@ -86,53 +116,127 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  List<String> _lines(TextEditingController controller) {
-    return controller.text.split(RegExp(r'\s+')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  Future<void> _reveal(String path) async {
+    if (path.isEmpty) {
+      setState(() => _note = '目录还不存在');
+      return;
+    }
+    if (Platform.isWindows) {
+      await Process.run('explorer', [path]);
+      return;
+    }
+    if (Platform.isMacOS) {
+      await Process.run('open', [path]);
+      return;
+    }
+    if (Platform.isLinux) {
+      await Process.run('xdg-open', [path]);
+      return;
+    }
+    var opened = false;
+    if (Platform.isAndroid) {
+      try {
+        opened = await const MethodChannel('jmcomic/engine').invokeMethod<bool>('reveal', {'path': path}) ?? false;
+      } catch (_) {}
+    }
+    if (!mounted || opened) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('漫画目录'),
+        content: SelectableText(path),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: path));
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('复制路径'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        ],
+      ),
+    );
   }
 
-  Future<void> _save(Settings next) async {
+  Future<void> _import(String? path) async {
+    final selected = path?.trim() ?? '';
+    if (selected.isEmpty) return;
+    final api = SessionScope.of(context).api;
+    final kind = await FileSystemEntity.type(selected);
+    if (!mounted) return;
+    if (kind == FileSystemEntityType.notFound) {
+      setState(() => _note = '选中的位置无法读取。可以改选 zip 或 cbz。');
+      return;
+    }
+    setState(() => _busy = true);
     try {
-      await SessionScope.of(context).saveSettings(next);
+      final report = await api.importPath(selected);
       if (!mounted) return;
-      setState(() => _note = '已保存');
+      final detail = report.lines.where((line) => line.trim().isNotEmpty).take(4).join('\n');
+      setState(() => _note = detail.isEmpty ? report.summary : '${report.summary}\n$detail');
+      await _refreshStorage();
     } on EngineException catch (err) {
+      if (!mounted) return;
       setState(() => _note = err.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _refreshCache() async {
-    try {
-      final bytes = await SessionScope.of(context).api.cacheBytes();
-      if (!mounted) return;
-      setState(() => _cache = bytes);
-    } catch (_) {}
+  Future<void> _pickFolder() async {
+    final path = await FilePicker.getDirectoryPath(dialogTitle: '选择漫画文件夹');
+    if (!mounted) return;
+    await _import(path);
+  }
+
+  Future<void> _pickArchive() async {
+    final files = await FilePicker.pickFiles(
+      dialogTitle: '选择 zip 或 cbz',
+      type: FileType.custom,
+      allowedExtensions: const ['zip', 'cbz'],
+    );
+    if (!mounted || files.isEmpty) return;
+    await _import(files.first.path);
   }
 
   @override
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
     final settings = session.settings;
+    final comicsDir = _storage.comicsDir.isNotEmpty ? _storage.comicsDir : settings.dataDir;
+    final version = settings.productVersion.isEmpty ? '2.0.0' : settings.productVersion;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(28, 22, 28, 48),
         children: [
           const Text('设置', style: TextStyle(fontSize: 26)),
           const SizedBox(height: 18),
-          const SectionLabel('漫画数据目录'),
+          const SectionLabel('漫画目录'),
           const SizedBox(height: 6),
           const Text(
-            '封面、下载的漫画和书架数据库都在这里。它和程序安装位置不是同一个文件夹。',
+            '下载的漫画在这个文件夹里。它和程序安装位置不是同一个地方。',
             style: TextStyle(color: InkColors.mute, height: 1.4),
           ),
           const SizedBox(height: 8),
-          if (_canChooseDataDir)
-            TextField(
-              controller: _dataDir,
-              decoration: const InputDecoration(hintText: r'D:\JMComicReader'),
-            )
-          else
-            SelectableText(settings.dataDir, style: const TextStyle(color: InkColors.dim)),
-          if (_canChooseDataDir)
+          SelectableText(comicsDir, style: const TextStyle(color: InkColors.dim, height: 1.4)),
+          Wrap(
+            children: [
+              TextButton(onPressed: () => _reveal(comicsDir), child: Text(_canChooseDataDir ? '打开文件夹' : '查看路径')),
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: comicsDir));
+                  if (mounted) setState(() => _note = '路径已复制');
+                },
+                child: const Text('复制路径'),
+              ),
+            ],
+          ),
+          if (_canChooseDataDir) ...[
+            const SizedBox(height: 8),
+            const Text('数据目录包含书架数据库和上面的漫画文件夹。', style: TextStyle(color: InkColors.mute, height: 1.4)),
+            const SizedBox(height: 8),
+            TextField(controller: _dataDir, decoration: const InputDecoration(hintText: r'D:\JMComicReader')),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
@@ -140,24 +244,67 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text(_movingData ? '正在处理…' : '更改数据目录'),
               ),
             ),
-          const SizedBox(height: 22),
-          const SectionLabel('API 域名'),
-          TextField(controller: _api, maxLines: 5, decoration: const InputDecoration(hintText: '每行一个')),
-          const SizedBox(height: 16),
-          const SectionLabel('图片域名'),
-          TextField(controller: _images, maxLines: 5),
+          ],
           const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('启动时自动更新 API 域名'),
-            value: settings.autoUpdateDomains,
-            activeThumbColor: InkColors.cinnabar,
-            onChanged: (value) => _save(settings.copyWith(
-              apiDomains: _lines(_api),
-              imageDomains: _lines(_images),
-              autoUpdateDomains: value,
-            )),
+          const Text(
+            '导入认 {编号}_{标题} 目录，也认现在的 comics 目录，以及同样结构的 zip / cbz。已经下完的书不会被覆盖。',
+            style: TextStyle(color: InkColors.mute, height: 1.4),
           ),
+          Wrap(
+            children: [
+              TextButton(onPressed: _busy ? null : _pickFolder, child: const Text('导入文件夹')),
+              TextButton(onPressed: _busy ? null : _pickArchive, child: const Text('导入 zip / cbz')),
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        try {
+                          final n = await session.api.rescan();
+                          if (mounted) setState(() => _note = '书架里有 $n 本');
+                          await _refreshStorage();
+                        } on EngineException catch (err) {
+                          if (mounted) setState(() => _note = err.message);
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
+                        }
+                      },
+                child: const Text('重新扫描'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const SectionLabel('空间'),
+          const SizedBox(height: 8),
+          Text(
+            '漫画 ${formatBytes(_storage.libraryBytes)}    封面缓存 ${formatBytes(_storage.cacheBytes)}',
+            style: const TextStyle(color: InkColors.dim),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('清理封面缓存'),
+                    content: const Text('只删除搜索和详情用过的封面。已下载的漫画会留下。'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('留下')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('清理')),
+                    ],
+                  ),
+                );
+                if (ok != true || !mounted) return;
+                await session.api.clearCache();
+                await _refreshStorage();
+                if (mounted) setState(() => _note = '封面缓存已清理');
+              },
+              child: const Text('清理封面缓存'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const SectionLabel('下载'),
           Row(
             children: [
               const Text('同时下载'),
@@ -182,7 +329,49 @@ class _SettingsPageState extends State<SettingsPage> {
               Text('${settings.concurrency}'),
             ],
           ),
-          Row(
+          const SizedBox(height: 8),
+          const SectionLabel('阅读'),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 4,
+            children: [
+              _mode('自动', 'smart', settings),
+              _mode('单页', 'single', settings),
+              _mode('跨页', 'spread', settings),
+              _mode('长条', 'strip', settings),
+            ],
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('阅读时保持屏幕常亮'),
+            value: settings.keepScreenOn,
+            activeThumbColor: InkColors.cinnabar,
+            onChanged: (value) => _save(settings.copyWith(
+              apiDomains: _lines(_api),
+              imageDomains: _lines(_images),
+              keepScreenOn: value,
+            )),
+          ),
+          const SizedBox(height: 8),
+          const SectionLabel('连接'),
+          const SizedBox(height: 8),
+          const Text('API 域名', style: TextStyle(color: InkColors.mute, fontSize: 12)),
+          TextField(controller: _api, maxLines: 4, decoration: const InputDecoration(hintText: '每行一个')),
+          const SizedBox(height: 12),
+          const Text('图片域名', style: TextStyle(color: InkColors.mute, fontSize: 12)),
+          TextField(controller: _images, maxLines: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('启动时自动更新 API 域名'),
+            value: settings.autoUpdateDomains,
+            activeThumbColor: InkColors.cinnabar,
+            onChanged: (value) => _save(settings.copyWith(
+              apiDomains: _lines(_api),
+              imageDomains: _lines(_images),
+              autoUpdateDomains: value,
+            )),
+          ),
+          Wrap(
             children: [
               TextButton(
                 onPressed: () => _save(settings.copyWith(apiDomains: _lines(_api), imageDomains: _lines(_images))),
@@ -204,35 +393,21 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const SectionLabel('缓存'),
-          const SizedBox(height: 8),
-          Text('封面缓存 ${formatBytes(_cache)}', style: const TextStyle(color: InkColors.dim)),
-          Wrap(
-            children: [
-              TextButton(
-                onPressed: () async {
-                  await session.api.clearCache();
-                  await _refreshCache();
-                  if (mounted) setState(() => _note = '封面缓存已清理');
-                },
-                child: const Text('清理封面缓存'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final n = await session.api.rescan();
-                  if (mounted) setState(() => _note = '重新扫描到 $n 本');
-                },
-                child: const Text('重新扫描书架'),
-              ),
-            ],
-          ),
-          if (_note != null) Text(_note!, style: const TextStyle(color: InkColors.brass)),
+          if (_note != null) ...[
+            const SizedBox(height: 8),
+            Text(_note!, style: const TextStyle(color: InkColors.brass, height: 1.4)),
+          ],
           const SizedBox(height: 28),
           const SectionLabel('关于'),
           const SizedBox(height: 8),
-          Text('JMComicReader ${settings.appVersion.isEmpty ? '2.0.0' : settings.appVersion}', style: const TextStyle(color: InkColors.dim)),
-          const SizedBox(height: 8),
+          Text('JMComicReader $version', style: const TextStyle(color: InkColors.dim)),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => launchUrl(Uri.parse(_releases), mode: LaunchMode.externalApplication),
+              child: const Text('发布页'),
+            ),
+          ),
           const Text(
             '本应用仅供学习交流。漫画来自网络，程序不会把内容上传到任何服务器。请遵守所在地法律，勿用于非法用途。阅读前需确认已年满 18 岁。',
             style: TextStyle(color: InkColors.mute, height: 1.5),
@@ -241,6 +416,20 @@ class _SettingsPageState extends State<SettingsPage> {
           const Text('MIT License', style: TextStyle(color: InkColors.mute, fontSize: 12)),
         ],
       ),
+    );
+  }
+
+  Widget _mode(String label, String value, Settings settings) {
+    final selected = settings.readerMode == value;
+    return TextButton(
+      onPressed: selected
+          ? null
+          : () => _save(settings.copyWith(
+                apiDomains: _lines(_api),
+                imageDomains: _lines(_images),
+                readerMode: value,
+              )),
+      child: Text(label, style: TextStyle(color: selected ? InkColors.cinnabar : InkColors.dim)),
     );
   }
 }
