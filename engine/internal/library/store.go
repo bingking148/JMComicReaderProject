@@ -217,6 +217,14 @@ func (s *Store) Delete(id int64) error {
 	return err
 }
 
+// ForgetComic drops the shelf row and leaves the download job in place.
+func (s *Store) ForgetComic(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, err := s.db.Exec(`DELETE FROM comics WHERE jm_id=?`, id)
+	return err
+}
+
 func (s *Store) SaveJob(j Job) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

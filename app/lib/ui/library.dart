@@ -86,7 +86,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   Widget _body() {
-    if (_loading) return const Center(child: ProgressRule(value: 0));
+    if (_loading) return const Center(child: ProgressRule());
     if (_error != null) return QuietMessage(title: '书架没有打开', detail: _error);
     if (_items.isEmpty) {
       return const QuietMessage(title: '书架还是空的', detail: '下载完成后，漫画会留在这台设备上。');

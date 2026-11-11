@@ -38,6 +38,7 @@ type Manager struct {
 type running struct {
 	library.Job
 	cancel context.CancelFunc
+	purge  bool
 }
 
 func New(root string, cat Catalog, lib *library.Store, workers func() int) *Manager {
@@ -144,15 +145,26 @@ func (m *Manager) Cancel(id int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	j, ok := m.jobs[id]
-	if !ok {
+	if !ok || j.Status == "complete" {
 		return
 	}
+	wasRunning := j.Status == "running"
 	j.Status = "canceled"
 	j.Message = "已取消"
+	j.Done = 0
+	j.Total = 0
+	j.Error = ""
+	j.purge = true
 	if j.cancel != nil {
 		j.cancel()
 	}
 	_ = m.lib.SaveJob(j.Job)
+	// A running worker may still be writing the page it already fetched.
+	// That directory is removed when the worker exits. Everything else can
+	// be deleted now, so a later resume does not treat leftover pages as done.
+	if !wasRunning {
+		m.cleanupLocked(j)
+	}
 }
 
 func (m *Manager) kick() {
@@ -184,6 +196,9 @@ func (m *Manager) run(ctx context.Context, job *running) {
 		m.mu.Lock()
 		m.active = false
 		job.cancel = nil
+		if job.purge {
+			m.cleanupLocked(job)
+		}
 		m.kick()
 		m.mu.Unlock()
 	}()
@@ -437,6 +452,21 @@ func (m *Manager) stopped(job *running) {
 		job.Message = "已暂停"
 		_ = m.lib.SaveJob(job.Job)
 	}
+}
+
+// cleanupLocked deletes pages for a canceled job. The caller holds m.mu.
+func (m *Manager) cleanupLocked(job *running) {
+	if dir, ok := library.FindComicDir(m.root, job.AlbumID); ok {
+		_ = os.RemoveAll(dir)
+	}
+	_ = m.lib.ForgetComic(job.AlbumID)
+	job.Done = 0
+	job.Total = 0
+	job.Status = "canceled"
+	job.Message = "已取消"
+	job.Error = ""
+	job.purge = false
+	_ = m.lib.SaveJob(job.Job)
 }
 
 func contains(ids []int64, id int64) bool {
