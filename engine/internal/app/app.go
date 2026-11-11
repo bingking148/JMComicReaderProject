@@ -20,9 +20,8 @@ import (
 	"github.com/bingking148/JMComicReaderProject/engine/internal/httpapi"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/library"
+	"github.com/bingking148/JMComicReaderProject/engine/internal/version"
 )
-
-const version = "2.0.0"
 
 // StatusError is a user-facing failure with an HTTP status.
 type StatusError struct {
@@ -474,7 +473,7 @@ func newToken() (string, error) {
 }
 
 // Version is the product version reported by the engine.
-func Version() string { return version }
+func Version() string { return version.Current }
 
 // ErrClosed is reserved for a future graceful shutdown.
 var ErrClosed = errors.New("engine closed")
