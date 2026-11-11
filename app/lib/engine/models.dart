@@ -282,7 +282,9 @@ class Settings {
     this.orientation = 'free',
     this.readerDim = 0,
     this.stripSpeed = 0,
+    this.keepScreenOn = true,
     this.dataDir = '',
+    this.productVersion = '',
   });
 
   final List<String> apiDomains;
@@ -300,9 +302,15 @@ class Settings {
   final String orientation;
   final double readerDim;
   final double stripSpeed;
+  final bool keepScreenOn;
   final String dataDir;
+  final String productVersion;
 
-  bool get screenStaysOn => keepAwake != 'off';
+  bool get screenStaysOn {
+    if (keepAwake == 'off') return false;
+    if (keepAwake == 'on') return true;
+    return keepScreenOn;
+  }
 
   Settings copyWith({
     List<String>? apiDomains,
@@ -319,6 +327,7 @@ class Settings {
     String? orientation,
     double? readerDim,
     double? stripSpeed,
+    bool? keepScreenOn,
   }) {
     return Settings(
       apiDomains: apiDomains ?? this.apiDomains,
@@ -336,7 +345,9 @@ class Settings {
       orientation: orientation ?? this.orientation,
       readerDim: readerDim ?? this.readerDim,
       stripSpeed: stripSpeed ?? this.stripSpeed,
+      keepScreenOn: keepScreenOn ?? this.keepScreenOn,
       dataDir: dataDir,
+      productVersion: productVersion,
     );
   }
 
@@ -356,7 +367,9 @@ class Settings {
         orientation: (json['orientation'] ?? 'free') as String,
         readerDim: (json['readerDim'] as num?)?.toDouble() ?? 0,
         stripSpeed: (json['stripSpeed'] as num?)?.toDouble() ?? 0,
+        keepScreenOn: json['keepScreenOn'] != false,
         dataDir: (json['dataDir'] ?? '') as String,
+        productVersion: (json['productVersion'] ?? '') as String,
       );
 
   Map<String, dynamic> toJson() => {
@@ -375,8 +388,86 @@ class Settings {
         'orientation': orientation,
         'readerDim': readerDim,
         'stripSpeed': stripSpeed,
+        'keepScreenOn': keepScreenOn,
         'dataDir': dataDir,
+        'productVersion': productVersion,
       };
+}
+
+class StorageUse {
+  const StorageUse({this.libraryBytes = 0, this.cacheBytes = 0, this.comicsDir = '', this.dataDir = ''});
+
+  final int libraryBytes;
+  final int cacheBytes;
+  final String comicsDir;
+  final String dataDir;
+
+  factory StorageUse.fromJson(Map<String, dynamic> json) => StorageUse(
+        libraryBytes: asInt(json['libraryBytes']),
+        cacheBytes: asInt(json['cacheBytes']),
+        comicsDir: (json['comicsDir'] ?? '') as String,
+        dataDir: (json['dataDir'] ?? '') as String,
+      );
+}
+
+class ImportReport {
+  const ImportReport({this.imported = 0, this.merged = 0, this.skipped = 0, this.failed = 0, this.lines = const []});
+
+  final int imported;
+  final int merged;
+  final int skipped;
+  final int failed;
+  final List<String> lines;
+
+  String get summary {
+    final parts = <String>[
+      if (imported > 0) '导入 $imported 本',
+      if (merged > 0) '补充 $merged 本',
+      if (skipped > 0) '跳过 $skipped 本',
+      if (failed > 0) '失败 $failed 本',
+    ];
+    if (parts.isEmpty) return '没有变化';
+    return parts.join('，');
+  }
+
+  factory ImportReport.fromJson(Map<String, dynamic> json) {
+    final items = (json['items'] as List<dynamic>? ?? const []);
+    return ImportReport(
+      imported: asInt(json['imported']),
+      merged: asInt(json['merged']),
+      skipped: asInt(json['skipped']),
+      failed: asInt(json['failed']),
+      lines: [
+        for (final item in items)
+          if (item is Map<String, dynamic>)
+            '${item['title'] ?? item['id']}：${item['detail'] ?? item['action'] ?? ''}',
+      ],
+    );
+  }
+}
+
+class DataRootChange {
+  const DataRootChange({
+    this.oldPath = '',
+    this.newPath = '',
+    this.error = '',
+    this.moved = false,
+    this.restart = false,
+  });
+
+  final String oldPath;
+  final String newPath;
+  final String error;
+  final bool moved;
+  final bool restart;
+
+  factory DataRootChange.fromJson(Map<String, dynamic> json) => DataRootChange(
+        oldPath: (json['oldPath'] ?? '') as String,
+        newPath: (json['newPath'] ?? '') as String,
+        error: (json['error'] ?? '') as String,
+        moved: json['moved'] == true,
+        restart: json['restart'] == true,
+      );
 }
 
 int asInt(Object? value) {

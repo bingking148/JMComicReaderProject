@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bingking148/JMComicReaderProject/engine/internal/dataroot"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/httpapi"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
 )
@@ -192,5 +193,56 @@ func TestSearchRoute(t *testing.T) {
 	body, _ := io.ReadAll(rec.Body)
 	if !bytes.Contains(body, []byte(`"direct":true`)) {
 		t.Fatalf("direct search: %s", body)
+	}
+}
+
+func TestRelocateMoveAndSwitch(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("JM_DATA_POINTER", filepath.Join(root, "data_root.txt"))
+	oldDir := filepath.Join(root, "old")
+	application, err := OpenWith(oldDir, &fakeCatalog{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(oldDir, "marker.txt"), []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(root, "moved")
+	result, err := application.Relocate(moved, "move")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Moved || !result.Restart {
+		t.Fatalf("%+v", result)
+	}
+	body, err := os.ReadFile(filepath.Join(moved, "marker.txt"))
+	if err != nil || string(body) != "keep" {
+		t.Fatalf("marker %q %v", body, err)
+	}
+	if _, err := os.Stat(oldDir); !os.IsNotExist(err) {
+		t.Fatalf("old directory still present: %v", err)
+	}
+	pointer, ok := dataroot.Read()
+	if !ok || pointer != moved {
+		t.Fatalf("pointer %q %v", pointer, ok)
+	}
+
+	switched := filepath.Join(root, "switched")
+	fresh, err := OpenWith(moved, &fakeCatalog{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = fresh.Relocate(switched, "switch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Moved || !result.Restart {
+		t.Fatalf("%+v", result)
+	}
+	if _, err := os.Stat(filepath.Join(moved, "marker.txt")); err != nil {
+		t.Fatal("switch removed the old library")
+	}
+	if _, err := os.Stat(switched); err != nil {
+		t.Fatal(err)
 	}
 }

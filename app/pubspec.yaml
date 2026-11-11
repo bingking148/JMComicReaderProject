@@ -28,11 +28,13 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  file_picker: ^13.3.3
   flutter:
     sdk: flutter
   http: ^1.6.0
   path: ^1.9.1
   path_provider: ^2.1.5
+  url_launcher: ^6.3.3
   wakelock_plus: ^1.8.2
 
 dev_dependencies:
