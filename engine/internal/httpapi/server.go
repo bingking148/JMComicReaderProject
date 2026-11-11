@@ -18,7 +18,9 @@ import (
 
 // Backend is the in-process product surface the local HTTP API exposes.
 type Backend interface {
-	Search(ctx context.Context, query string, page int, sort string) (jm.SearchResult, error)
+	Search(ctx context.Context, query string, page int, order, timeRange string) (jm.SearchResult, error)
+	Browse(ctx context.Context, page int, category, order, timeRange string) (jm.SearchResult, error)
+	Discover(ctx context.Context) (jm.Discover, error)
 	Enrich(ctx context.Context, ids []int64) (map[string]jm.Summary, error)
 	Album(ctx context.Context, id int64) (any, error)
 	StartDownload(id int64, restart bool) (library.Job, error)
@@ -49,6 +51,8 @@ func New(b Backend, token string) http.Handler {
 	mux.HandleFunc("GET /v1/settings", s.getSettings)
 	mux.HandleFunc("PUT /v1/settings", s.putSettings)
 	mux.HandleFunc("POST /v1/settings/domains/refresh", s.refreshDomains)
+	mux.HandleFunc("GET /v1/discover", s.discover)
+	mux.HandleFunc("POST /v1/browse", s.browse)
 	mux.HandleFunc("POST /v1/search", s.search)
 	mux.HandleFunc("POST /v1/search/enrich", s.enrich)
 	mux.HandleFunc("GET /v1/history/search", s.history)
@@ -129,19 +133,57 @@ func (s *server) refreshDomains(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, next)
 }
 
+func (s *server) discover(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 40*time.Second)
+	defer cancel()
+	feed, err := s.b.Discover(ctx)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, feed)
+}
+
+func (s *server) browse(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Category string `json:"category"`
+		Order    string `json:"order"`
+		Time     string `json:"time"`
+		Page     int    `json:"page"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "浏览参数不正确")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	res, err := s.b.Browse(ctx, body.Page, body.Category, body.Order, body.Time)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
 func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Query string `json:"query"`
 		Page  int    `json:"page"`
+		Order string `json:"order"`
+		Time  string `json:"time"`
 		Sort  string `json:"sort"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "搜索参数不正确")
 		return
 	}
+	order := body.Order
+	if order == "" {
+		order = body.Sort
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	res, err := s.b.Search(ctx, body.Query, body.Page, body.Sort)
+	res, err := s.b.Search(ctx, body.Query, body.Page, order, body.Time)
 	if err != nil {
 		writeErr(w, err)
 		return

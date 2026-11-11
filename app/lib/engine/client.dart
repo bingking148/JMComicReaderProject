@@ -36,13 +36,25 @@ class EngineClient {
     return Settings.fromJson(await _send('POST', '/v1/settings/domains/refresh', const {}));
   }
 
-  Future<SearchResult> search(String query, {int page = 1, String sort = 'latest'}) async {
+  Future<SearchResult> search(String query, {int page = 1, String order = 'mr', String time = 'a'}) async {
     return SearchResult.fromJson(await _send('POST', '/v1/search', {
       'query': query,
       'page': page,
-      'sort': sort,
+      'order': order,
+      'time': time,
     }));
   }
+
+  Future<SearchResult> browse({String category = '0', int page = 1, String order = 'mr', String time = 'a'}) async {
+    return SearchResult.fromJson(await _send('POST', '/v1/browse', {
+      'category': category,
+      'page': page,
+      'order': order,
+      'time': time,
+    }));
+  }
+
+  Future<DiscoverFeed> discover() async => DiscoverFeed.fromJson(await _send('GET', '/v1/discover'));
 
   Future<Map<int, Summary>> enrich(List<int> ids) async {
     if (ids.isEmpty) return const {};
