@@ -8,10 +8,10 @@ Local JM comic reader for Windows and Android.
 
 ## 下载
 
-当前版本是 [v2.0.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.0.0)。
+当前版本是 [v2.1.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.1.0)。
 
-- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-2.0.0-arm64.apk)
-- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-Setup-v2.0.0.exe)
+- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.1.0/JMComicReader-2.1.0-arm64.apk)
+- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.1.0/JMComicReader-Setup-v2.1.0.exe)
 
 Windows 安装程序默认把程序装到 `%LOCALAPPDATA%\Programs\JMComicReader`，目录里是 `JMComicReader.exe` 和旁边的 `jmengine.exe`。漫画不在这里。
 
@@ -54,7 +54,7 @@ python start.py
 
 ## 从源码构建
 
-需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.0.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
+需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.1.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
 
 ```bash
 scripts/build-engine.sh
@@ -67,7 +67,7 @@ flutter run -d linux
 
 把 `linux` 换成 `windows` 或 `macos` 即可。工作目录在 `app/` 时，程序会找 `app/bin/jmengine`（Windows 是 `jmengine.exe`）。也可以用环境变量 `JM_ENGINE` 指向这个文件。
 
-Windows 安装包在打 `v2.0.0` 标签时由 GitHub Actions 生成。本地可以这样编：
+Windows 安装包在打 `v2.1.0` 标签时由 GitHub Actions 生成。本地可以这样编：
 
 ```bat
 cd engine
@@ -75,7 +75,7 @@ set CGO_ENABLED=0
 go build -trimpath -ldflags "-s -w" -o ../app/bin/jmengine.exe ./cmd/jmengine
 cd ../app
 flutter build windows
-ISCC /DAppVersion=2.0.0 app\windows\installer\JMComicReader.iss
+ISCC /DAppVersion=2.1.0 app\windows\installer\JMComicReader.iss
 ```
 
 Linux：
