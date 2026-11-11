@@ -95,6 +95,44 @@ class Album {
   }
 }
 
+class ShelfCategory {
+  const ShelfCategory({required this.id, required this.name});
+  final String id;
+  final String name;
+
+  factory ShelfCategory.fromJson(Map<String, dynamic> json) => ShelfCategory(
+        id: (json['id'] ?? '') as String,
+        name: (json['name'] ?? '') as String,
+      );
+}
+
+class DiscoverFeed {
+  const DiscoverFeed({
+    this.keywords = const [],
+    this.categories = const [],
+    this.latest = const [],
+    this.mostFavorited = const [],
+  });
+
+  final List<String> keywords;
+  final List<ShelfCategory> categories;
+  final List<Summary> latest;
+  final List<Summary> mostFavorited;
+
+  factory DiscoverFeed.fromJson(Map<String, dynamic> json) => DiscoverFeed(
+        keywords: stringList(json['keywords']),
+        categories: (json['categories'] as List<dynamic>? ?? const [])
+            .map((item) => ShelfCategory.fromJson(item as Map<String, dynamic>))
+            .toList(),
+        latest: (json['latest'] as List<dynamic>? ?? const [])
+            .map((item) => Summary.fromJson(item as Map<String, dynamic>))
+            .toList(),
+        mostFavorited: (json['mostFavorited'] as List<dynamic>? ?? const [])
+            .map((item) => Summary.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class SearchResult {
   const SearchResult({
     required this.query,

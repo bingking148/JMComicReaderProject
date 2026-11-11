@@ -28,6 +28,20 @@ func (f *fakeCatalog) Search(context.Context, string, int) (jm.SearchResult, err
 	return jm.SearchResult{Total: 1, Items: []jm.Summary{{ID: 5, Title: "搜索结果", Author: "作者"}}}, nil
 }
 
+func (f *fakeCatalog) SearchOrdered(context.Context, string, int, string, string) (jm.SearchResult, error) {
+	return f.Search(context.Background(), "", 1)
+}
+
+func (f *fakeCatalog) Browse(context.Context, int, string, string, string) (jm.SearchResult, error) {
+	return jm.SearchResult{
+		Total: 2,
+		Items: []jm.Summary{
+			{ID: 11, Title: "今日", Tags: []string{"全彩", "校园"}},
+			{ID: 12, Title: "另一本", Tags: []string{"全彩", "剧情"}},
+		},
+	}, nil
+}
+
 func (f *fakeCatalog) Album(context.Context, int64) (jm.Album, error) {
 	return jm.Album{
 		Summary:      jm.Summary{ID: 5, Title: "本地漫画", Author: "作者", Favorites: 9, Tags: []string{"测试"}},
@@ -156,6 +170,30 @@ func postJSON(t *testing.T, h http.Handler, path, body, token string) *httptest.
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestDiscoverKeywords(t *testing.T) {
+	dir := t.TempDir()
+	application, err := OpenWith(dir, &fakeCatalog{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := application.Config.Get()
+	settings.AgeAccepted = true
+	_, _ = application.UpdateSettings(settings)
+	feed, err := application.Discover(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(feed.Latest) != 2 || len(feed.MostFavorited) != 2 {
+		t.Fatalf("%+v", feed)
+	}
+	if len(feed.Keywords) == 0 || feed.Keywords[0] != "全彩" {
+		t.Fatalf("keywords %v", feed.Keywords)
+	}
+	if len(feed.Categories) < 2 {
+		t.Fatal("missing categories")
+	}
 }
 
 func TestSearchRoute(t *testing.T) {
