@@ -5,11 +5,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../engine/client.dart';
 import '../engine/models.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/widgets.dart';
 import 'policy.dart';
 
 class ReaderScreen extends StatefulWidget {
@@ -22,6 +24,8 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
+  static const _engine = MethodChannel('jmcomic/engine');
+
   ReaderDoc? _doc;
   String? _error;
   int _chapter = 0;
@@ -39,6 +43,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   BoxConstraints? _constraints;
   int _cacheSize = 0;
   int _cacheBytes = 0;
+  double _dim = 0;
+  String _background = 'ink';
+  String _orientation = 'free';
+  bool _awake = true;
+  double _stripSpeed = 0;
+  Timer? _glide;
+  DateTime _glideAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   ReaderChapter? get _current {
     final doc = _doc;
@@ -54,6 +65,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _cacheBytes = cache.maximumSizeBytes;
     cache.maximumSize = 28;
     cache.maximumSizeBytes = 96 << 20;
+    _engine.setMethodCallHandler((call) async {
+      if (!mounted || call.method != 'volume') return;
+      _turn(call.arguments == 'prev' ? -1 : 1);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _open());
   }
 
@@ -64,11 +79,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
       var index = doc.chapters.indexWhere((c) => c.id == (widget.initialChapterId?.isNotEmpty == true ? widget.initialChapterId : doc.chapterId));
       if (index < 0) index = 0;
       final sameChapter = doc.chapters.isNotEmpty && doc.chapters[index].id == doc.chapterId;
+      final settings = SessionScope.of(context).settings;
       setState(() {
         _doc = doc;
         _choice = readModeFromName(doc.mode);
         _fit = fitModeFromName(doc.fit);
         _rtl = doc.rtl;
+        _background = settings.readerBackground;
+        _orientation = settings.orientation;
+        _awake = settings.screenStaysOn;
+        _dim = settings.readerDim.clamp(0, 0.6);
+        _stripSpeed = settings.stripSpeed;
         _chapter = index;
         _page = sameChapter ? math.max(0, doc.page - 1) : 0;
         _offset = sameChapter ? doc.offset : 0;
@@ -76,6 +97,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _bindControllers();
       _armChrome();
       _precache();
+      _applyRoom();
     } on EngineException catch (err) {
       if (!mounted) return;
       setState(() => _error = err.message);
@@ -115,13 +137,66 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void dispose() {
     _hide?.cancel();
     _save?.cancel();
+    _glide?.cancel();
     _pages?.dispose();
     _scroll?.dispose();
     final cache = PaintingBinding.instance.imageCache;
     cache.maximumSize = _cacheSize;
     cache.maximumSizeBytes = _cacheBytes;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    unawaited(_wake(false));
+    unawaited(_volumeKeys(false));
+    _engine.setMethodCallHandler(null);
     super.dispose();
+  }
+
+  void _applyRoom() {
+    final orientations = switch (_orientation) {
+      'portrait' => const [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
+      'landscape' => const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight],
+      _ => DeviceOrientation.values,
+    };
+    SystemChrome.setPreferredOrientations(orientations);
+    unawaited(_wake(_awake));
+    unawaited(_volumeKeys(true));
+    _armGlide();
+  }
+
+  Future<void> _wake(bool on) async {
+    try {
+      if (on) {
+        await WakelockPlus.enable();
+      } else {
+        await WakelockPlus.disable();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _volumeKeys(bool on) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _engine.invokeMethod('volumeTurns', {'enabled': on});
+    } catch (_) {}
+  }
+
+  void _armGlide() {
+    _glide?.cancel();
+    if (_stripSpeed <= 0) return;
+    _glideAt = DateTime.now();
+    _glide = Timer.periodic(const Duration(milliseconds: 32), (_) {
+      if (!mounted || _chrome || _stripSpeed <= 0) return;
+      final scroll = _scroll;
+      if (scroll == null || !scroll.hasClients) return;
+      final now = DateTime.now();
+      final dt = now.difference(_glideAt).inMilliseconds / 1000;
+      _glideAt = now;
+      final max = scroll.position.maxScrollExtent;
+      final next = (scroll.offset + _stripSpeed * dt).clamp(0.0, max);
+      if (next <= scroll.offset) return;
+      scroll.jumpTo(next);
+      _offset = next;
+    });
   }
 
   ReadMode _effective(BoxConstraints constraints) {
@@ -227,7 +302,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _goChapter(_chapter + 1);
       return;
     }
-    _pages?.animateToPage(next + 1, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
+    _pages?.animateToPage(next + 1, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
   }
 
   void _turnSpread(int delta) {
@@ -244,7 +319,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       return;
     }
     _setPage(next * 2);
-    _pages?.animateToPage(next, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
+    _pages?.animateToPage(next, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
   }
 
   Future<void> _persistMode() async {
@@ -253,6 +328,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
       readerMode: readModeName(_choice),
       fitMode: fitModeName(_fit),
       rtl: _rtl,
+      readerBackground: _background,
+      keepAwake: _awake ? 'on' : 'off',
+      orientation: _orientation,
+      readerDim: _dim,
+      stripSpeed: _stripSpeed,
     ));
   }
 
@@ -260,21 +340,43 @@ class _ReaderScreenState extends State<ReaderScreen> {
     const order = [ReadMode.smart, ReadMode.single, ReadMode.spread, ReadMode.strip];
     setState(() => _choice = order[(order.indexOf(_choice) + 1) % order.length]);
     _bindControllers();
+    _armGlide();
     _persistMode();
   }
 
   void _cycleFit() {
-    setState(() => _fit = _fit == FitMode.width ? FitMode.contain : FitMode.width);
+    const order = [FitMode.width, FitMode.contain, FitMode.height];
+    setState(() => _fit = order[(order.indexOf(_fit) + 1) % order.length]);
     _persistMode();
+  }
+
+  Color _pageColor() {
+    switch (_background) {
+      case 'paper':
+        return const Color(0xFFE4D7C3);
+      case 'gray':
+        return const Color(0xFF2A2A2A);
+      default:
+        return InkColors.read;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final doc = _doc;
     return Scaffold(
-      backgroundColor: InkColors.read,
+      backgroundColor: _pageColor(),
       body: doc == null
-          ? Center(child: Text(_error ?? '正在打开', style: const TextStyle(color: InkColors.dim)))
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 72, child: ProgressRule(value: 0)),
+                  const SizedBox(height: 14),
+                  Text(_error ?? '正在打开', style: const TextStyle(color: InkColors.mute, fontSize: 13)),
+                ],
+              ),
+            )
           : LayoutBuilder(
               builder: (context, constraints) {
                 _constraints = constraints;
@@ -289,12 +391,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     const SingleActivator(LogicalKeyboardKey.keyM): _cycleMode,
                     const SingleActivator(LogicalKeyboardKey.keyF): _cycleFit,
                     const SingleActivator(LogicalKeyboardKey.escape): _toggleChrome,
+                    const SingleActivator(LogicalKeyboardKey.audioVolumeDown): () => _turn(1),
+                    const SingleActivator(LogicalKeyboardKey.audioVolumeUp): () => _turn(-1),
                   },
                   child: Focus(
                     autofocus: true,
                     child: Stack(
                       children: [
                         Positioned.fill(child: _viewport(mode, constraints)),
+                        if (_dim > 0)
+                          Positioned.fill(
+                            child: IgnorePointer(child: ColoredBox(color: Color.fromRGBO(0, 0, 0, _dim))),
+                          ),
                         _bar(doc, mode, top: true),
                         _bar(doc, mode, top: false),
                       ],
@@ -360,7 +468,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return Row(
           children: [
             Expanded(child: _spreadSide(chapter, _rtl ? right : left)),
-            Container(width: 1, color: InkColors.line),
+            const SizedBox(width: 14),
             Expanded(child: _spreadSide(chapter, _rtl ? left : right)),
           ],
         );
@@ -397,9 +505,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           if (index == chapter.pages.length) return _sentinel(false);
           final width = math.min(constraints.maxWidth, 920.0);
           final dpr = MediaQuery.devicePixelRatioOf(context);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Center(
+          return Center(
               child: GestureDetector(
                 onTapUp: (details) {
                   if ((details.localPosition.dx - width / 2).abs() < width * 0.22) _toggleChrome();
@@ -417,8 +523,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ),
                 ),
               ),
-            ),
-          );
+            );
         },
       ),
     );
@@ -451,76 +556,102 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget _bar(ReaderDoc doc, ReadMode mode, {required bool top}) {
     final chapter = _current;
     final count = chapter?.pages.length ?? 0;
+    final shown = _choice == ReadMode.smart ? '自适应 · ${readModeLabel(mode)}' : readModeLabel(_choice);
     final child = top
         ? Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: InkColors.paper, size: 20),
-              ),
+              _word('返回', on: false, onTap: () => Navigator.of(context).maybePop()),
+              const SizedBox(width: 6),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(doc.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(chapter?.name ?? '', style: const TextStyle(color: InkColors.mute, fontSize: 12)),
+                    Text(
+                      doc.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, height: 1.2, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(chapter?.name ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: InkColors.mute, fontSize: 12, height: 1.2)),
                   ],
                 ),
               ),
-              TextButton(onPressed: _cycleMode, child: Text(readModeLabel(_choice == ReadMode.smart ? mode : _choice))),
-              TextButton(onPressed: () => _chapters(doc), child: const Text('章节')),
+              _word(shown, on: true, onTap: _cycleMode),
+              _word('目录', on: false, onTap: () => _chapters(doc)),
             ],
           )
         : Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  Text('${count == 0 ? 0 : _page + 1} / $count', style: const TextStyle(color: InkColors.dim, fontSize: 12)),
+                  _word('上一话', on: false, onTap: _chapter > 0 ? () => _goChapter(_chapter - 1, page: 1 << 20) : null),
                   const Spacer(),
-                  if (mode != ReadMode.strip) TextButton(onPressed: _cycleFit, child: Text(fitModeLabel(_fit))),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _rtl = !_rtl);
-                      _persistMode();
-                    },
-                    child: Text(_rtl ? '右起' : '左起'),
-                  ),
+                  Text(_progressLabel(mode, count), style: const TextStyle(color: InkColors.paper, fontSize: 13, fontFeatures: [FontFeature.tabularFigures()])),
+                  const Spacer(),
+                  _word('下一话', on: false, onTap: _chapter < doc.chapters.length - 1 ? () => _goChapter(_chapter + 1) : null),
                 ],
               ),
-              if (count > 1 && mode != ReadMode.strip)
-                Slider(
-                  value: (_page + 1).clamp(1, count).toDouble(),
-                  min: 1,
-                  max: count.toDouble(),
-                  onChanged: (value) {
-                    final page = value.round() - 1;
-                    _setPage(page);
-                    if (mode == ReadMode.spread) {
-                      _pages?.jumpToPage(page ~/ 2);
-                    } else {
-                      _pages?.jumpToPage(page + 1);
-                    }
-                  },
-                ),
+              _scrubber(mode, count),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 2,
+                runSpacing: 0,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (mode != ReadMode.strip) ...[
+                    _word('适宽', on: _fit == FitMode.width, onTap: () => _setFit(FitMode.width)),
+                    _word('整页', on: _fit == FitMode.contain, onTap: () => _setFit(FitMode.contain)),
+                    _word('适高', on: _fit == FitMode.height, onTap: () => _setFit(FitMode.height)),
+                  ],
+                  _word(_rtl ? '右起' : '左起', on: _rtl, onTap: () {
+                    setState(() => _rtl = !_rtl);
+                    _persistMode();
+                  }),
+                  _word(_awake ? '常亮' : '会息屏', on: _awake, onTap: () {
+                    setState(() => _awake = !_awake);
+                    _applyRoom();
+                    _persistMode();
+                  }),
+                  _word(_bgWord(_background), on: _background != 'ink', onTap: _cycleBackground),
+                  _word(_dimWord(_dim), on: _dim > 0, onTap: _cycleDim),
+                  _word(_orientationWord(_orientation), on: _orientation != 'free', onTap: _cycleOrientation),
+                  if (mode == ReadMode.strip) _word(_speedWord(_stripSpeed), on: _stripSpeed > 0, onTap: _cycleSpeed),
+                ],
+              ),
             ],
           );
-    return AnimatedSlide(
-      offset: _chrome ? Offset.zero : Offset(0, top ? -1 : 1),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      child: AnimatedOpacity(
-        opacity: _chrome ? 1 : 0,
-        duration: const Duration(milliseconds: 180),
-        child: Align(
-          alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
-          child: ColoredBox(
-            color: const Color(0xE6110F0D),
-            child: SafeArea(
-              bottom: !top,
-              top: top,
-              child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: child),
+    return IgnorePointer(
+      ignoring: !_chrome,
+      child: AnimatedSlide(
+        offset: _chrome ? Offset.zero : Offset(0, top ? -1 : 1),
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: _chrome ? 1 : 0,
+          duration: const Duration(milliseconds: 180),
+          child: Align(
+            alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xF2110F0D),
+                border: Border(
+                  top: top ? BorderSide.none : const BorderSide(color: InkColors.line),
+                  bottom: top ? const BorderSide(color: InkColors.line) : BorderSide.none,
+                ),
+              ),
+              child: SafeArea(
+                bottom: !top,
+                top: top,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(12, top ? 4 : 8, 12, top ? 8 : 6),
+                  child: child,
+                ),
+              ),
             ),
           ),
         ),
@@ -528,22 +659,228 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  String _progressLabel(ReadMode mode, int count) {
+    if (mode == ReadMode.strip) {
+      final scroll = _scroll;
+      if (scroll == null || !scroll.hasClients || scroll.position.maxScrollExtent <= 0) return '长条';
+      final pct = (100 * scroll.offset / scroll.position.maxScrollExtent).round().clamp(0, 100);
+      return '$pct%';
+    }
+    if (count <= 0) return '0 / 0';
+    return '${_page + 1}  /  $count';
+  }
+
+  Widget _scrubber(ReadMode mode, int count) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        var fraction = 0.0;
+        if (mode == ReadMode.strip) {
+          final scroll = _scroll;
+          if (scroll != null && scroll.hasClients && scroll.position.maxScrollExtent > 0) {
+            fraction = scroll.offset / scroll.position.maxScrollExtent;
+          }
+        } else if (count > 1) {
+          fraction = _page / (count - 1);
+        }
+        fraction = fraction.clamp(0.0, 1.0);
+        void jump(double dx) {
+          final t = width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
+          if (mode == ReadMode.strip) {
+            final scroll = _scroll;
+            if (scroll != null && scroll.hasClients) {
+              final next = t * scroll.position.maxScrollExtent;
+              scroll.jumpTo(next);
+              _offset = next;
+              _scheduleSave();
+              setState(() {});
+            }
+            return;
+          }
+          if (count <= 1) return;
+          final page = (t * (count - 1)).round();
+          _setPage(page);
+          if (mode == ReadMode.spread) {
+            _pages?.jumpToPage(page ~/ 2);
+          } else {
+            _pages?.jumpToPage(page + 1);
+          }
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) => jump(details.localPosition.dx),
+          onHorizontalDragUpdate: (details) => jump(details.localPosition.dx),
+          child: SizedBox(
+            height: 22,
+            child: Align(
+              alignment: Alignment.center,
+              child: SizedBox(
+                height: 2,
+                child: Stack(
+                  children: [
+                    const ColoredBox(color: InkColors.line, child: SizedBox.expand()),
+                    FractionallySizedBox(
+                      widthFactor: fraction,
+                      child: const ColoredBox(color: InkColors.cinnabar, child: SizedBox.expand()),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _word(String label, {required bool on, required VoidCallback? onTap}) {
+    final color = onTap == null ? InkColors.mute : (on ? InkColors.cinnabar : InkColors.dim);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.1,
+            color: color,
+            fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _setFit(FitMode fit) {
+    setState(() => _fit = fit);
+    _persistMode();
+  }
+
+  void _cycleBackground() {
+    const order = ['ink', 'gray', 'paper'];
+    setState(() => _background = order[(order.indexOf(_background) + 1) % order.length]);
+    _persistMode();
+  }
+
+  void _cycleDim() {
+    const steps = [0.0, 0.18, 0.4];
+    final index = steps.indexWhere((step) => (_dim - step).abs() < 0.02);
+    setState(() => _dim = steps[(index + 1) % steps.length]);
+    _persistMode();
+  }
+
+  void _cycleOrientation() {
+    const order = ['free', 'portrait', 'landscape'];
+    setState(() => _orientation = order[(order.indexOf(_orientation) + 1) % order.length]);
+    _applyRoom();
+    _persistMode();
+  }
+
+  void _cycleSpeed() {
+    const steps = [0.0, 36.0, 72.0, 120.0];
+    final index = steps.indexWhere((step) => (_stripSpeed - step).abs() < 1);
+    setState(() => _stripSpeed = steps[(index + 1) % steps.length]);
+    _armGlide();
+    _persistMode();
+  }
+
+  String _bgWord(String value) {
+    switch (value) {
+      case 'paper':
+        return '纸色';
+      case 'gray':
+        return '灰色';
+      default:
+        return '墨色';
+    }
+  }
+
+  String _dimWord(double value) {
+    if (value >= 0.3) return '遮光深';
+    if (value > 0) return '遮光浅';
+    return '遮光关';
+  }
+
+  String _orientationWord(String value) {
+    switch (value) {
+      case 'portrait':
+        return '锁定竖屏';
+      case 'landscape':
+        return '锁定横屏';
+      default:
+        return '随方向';
+    }
+  }
+
+  String _speedWord(double value) {
+    if (value >= 100) return '滚动快';
+    if (value >= 60) return '滚动中';
+    if (value > 0) return '滚动慢';
+    return '滚动关';
+  }
+
   Future<void> _chapters(ReaderDoc doc) async {
+    _hide?.cancel();
     final picked = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: InkColors.raised,
-      builder: (context) => ListView.builder(
-        itemCount: doc.chapters.length,
-        itemBuilder: (context, index) {
-          final selected = index == _chapter;
-          return ListTile(
-            title: Text(doc.chapters[index].name, style: TextStyle(color: selected ? InkColors.cinnabar : InkColors.paper)),
-            subtitle: Text('${doc.chapters[index].pages.length} 页', style: const TextStyle(color: InkColors.mute)),
-            onTap: () => Navigator.pop(context, index),
-          );
-        },
-      ),
+      isScrollControlled: true,
+      builder: (context) {
+        final height = MediaQuery.sizeOf(context).height * 0.72;
+        return SizedBox(
+          height: height,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(22, 18, 22, 8),
+                child: Text('目录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              ),
+              const Divider(height: 1, color: InkColors.line),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: doc.chapters.length,
+                  itemBuilder: (context, index) {
+                    final selected = index == _chapter;
+                    final chapter = doc.chapters[index];
+                    return InkWell(
+                      onTap: () => Navigator.pop(context, index),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border(left: BorderSide(color: selected ? InkColors.cinnabar : Colors.transparent, width: 2)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 22, 14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  chapter.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: selected ? InkColors.cinnabar : InkColors.paper, fontSize: 15),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text('${chapter.pages.length} 页', style: const TextStyle(color: InkColors.mute, fontSize: 12, fontFeatures: [FontFeature.tabularFigures()])),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
+    if (!mounted) return;
+    _armChrome();
     if (picked != null) _goChapter(picked);
   }
 }
@@ -623,7 +960,11 @@ class _ComicPageState extends State<ComicPage> {
         final dpr = MediaQuery.devicePixelRatioOf(context);
         final image = Image.file(
           File(widget.path),
-          fit: widget.fit == FitMode.width ? BoxFit.fitWidth : BoxFit.contain,
+          fit: switch (widget.fit) {
+            FitMode.height => BoxFit.fitHeight,
+            FitMode.contain => BoxFit.contain,
+            FitMode.width => BoxFit.fitWidth,
+          },
           width: widget.fit == FitMode.width ? constraints.maxWidth : null,
           alignment: Alignment.topCenter,
           filterQuality: FilterQuality.medium,
@@ -654,7 +995,7 @@ class _ComicPageState extends State<ComicPage> {
             child: SizedBox(
               width: constraints.maxWidth,
               height: height,
-              child: widget.fit == FitMode.contain ? Center(child: image) : Align(alignment: Alignment.topCenter, child: image),
+              child: widget.fit == FitMode.width ? Align(alignment: Alignment.topCenter, child: image) : Center(child: image),
             ),
           ),
         );
