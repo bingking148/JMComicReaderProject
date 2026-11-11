@@ -1,94 +1,84 @@
 # JMComicReader
 
-本地 JM 漫画阅读器。2.0 起，搜索、详情、下载、缓存、书架和配置都由一个 **Go 引擎**完成；桌面和手机上的界面是 **Flutter**。手机应用自己带这份引擎，不需要电脑开着，也不用连同一 Wi-Fi。
+Local JM comic reader for Windows and Android.
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.0.0)
+在本机搜索、下载和阅读 JM 漫画。站点协议、下载和书架由 Go 引擎完成，界面是 Flutter。发布的 Windows 安装包和 Android APK 都自带引擎，不需要另开一台电脑上的服务。
 
-## 下载 v2.0.0
+本项目仅供学习交流，请勿用于非法用途。漫画来自网络，程序不会在自有服务器上保存内容。使用前请确认已年满 18 岁。
 
-正式版发布页：[v2.0.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.0.0)
+## 下载
 
-- [JMComicReader-2.0.0-arm64.apk](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-2.0.0-arm64.apk)：Android arm64
-- [JMComicReader-Setup-v2.0.0.exe](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-Setup-v2.0.0.exe)：Windows 安装程序
+当前版本是 [v2.0.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.0.0)。
 
-安装后打开的是本机窗口。Windows 安装目录里主程序旁边有 `jmengine.exe`。不需要 Python，也不需要另一台电脑上的服务。手机安装 APK 后同样自己带引擎。
+- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-2.0.0-arm64.apk)
+- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.0.0/JMComicReader-Setup-v2.0.0.exe)
 
-## 能做什么
+Windows 安装程序默认把程序装到 `%LOCALAPPDATA%\Programs\JMComicReader`，目录里是 `JMComicReader.exe` 和旁边的 `jmengine.exe`。漫画不在这里。
 
-- 关键词搜索，以及用 JM 号直接打开
-- 详情、标签、章节
-- 封面缓存
-- 并发下载、断点续传、进度
-- 书架：列表、删除、占用空间、重新扫描旧目录
-- 阅读进度按本保存，更新应用不会清掉下载
-- 可配置 API / 图片域名和下载并发（对应旧版 `jm_option.yml`）
-- 阅读器会按页面比例和窗口自己选择：适宽单页、跨页、长条连续滚动；也支持捏合、双击缩放、点击翻页、键盘
+封面、书架数据库和已下载的漫画在用户数据目录里，更新或重装程序不会清掉：
 
-旧的 Python / Flask / pywebview 程序在 [`legacy/`](legacy/)。
+- Windows：`%APPDATA%\JMComicReader\JMComicReader`
+- Android：应用私有目录
 
-## 架构
+设置页顶部会显示这台机器上的实际路径。漫画文件在其中的 `comics/` 下，一本一个 `{编号}_{标题}` 文件夹。
 
-```
-JMComicReaderProject/
-├── engine/                 Go 引擎（协议、下载、书架、配置）
-│   ├── cmd/jmengine/       桌面可执行文件，只监听 127.0.0.1
-│   └── jmengine/           gomobile 入口，嵌进 Android / iOS 进程
-├── app/                    Flutter 界面与阅读器
-├── scripts/                构建引擎
-└── legacy/                 1.x Python 应用
-```
+Linux 和 macOS 可以按下面的步骤自己编译。发布页里没有这两个平台的安装包。
 
-Flutter 不实现站点协议。它只做界面，通过本机回环地址访问引擎：
+## 使用
 
-- **桌面**：启动同目录或 `app/bin/` 里的 `jmengine`
-- **Android**：`gomobile` 把引擎编进 APK，由 `MainActivity` 在进程内 `Start`
-- **iOS**：工程和 MethodChannel 已留好。把 gomobile 的 xcframework 接上 `jmengine.Start` 之后就能编，步骤见下方
+- 用关键词搜索，或直接输入 JM 编号打开一本
+- 下载可以暂停、继续；已经下完的页会跳过
+- 在书架里阅读已下载的漫画，阅读进度按本保存
+- 阅读时会按页面和窗口在单页、跨页、长条之间选择，也可以自己指定。可以缩放，也可以用键盘翻页
+- 设置里可以改 API 域名、图片域名和同时下载的图片数（1–16），也可以只清理封面缓存
 
-数据放在系统给应用的支持目录里（桌面大约是 `~/.local/share/app.jmcomic.reader.jm_comic_reader`，Android 在应用私有目录）。封面缓存、书架数据库和漫画正文都在这里，升级安装不会清掉。
+第一次打开需要确认年龄。
 
-## 环境
+## 从 1.x 搬过来
 
-- Go 1.22+
-- Flutter 3.27+（本仓库用 3.47 验证）
-- 桌面 Linux：`clang`、`cmake`、`ninja`、`pkg-config`、GTK 3
-- Android：Android SDK、NDK，以及 `gomobile`
+2.0 不读取旧的 `comics.db`，也不再生成 PDF。
+
+如果旧下载是 `{编号}_{标题}/`，里面是章节子目录，或者图片直接铺在这一层，把这些文件夹拷进上面的 `comics/`，然后在设置里点「重新扫描书架」。
+
+`jm_option.yml` 不会导入。域名和下载并发在设置页里改。
+
+1.x 的 Python 程序还在 [`legacy/`](legacy/)，可以照旧运行：
 
 ```bash
-go install golang.org/x/mobile/cmd/gomobile@latest
-go install golang.org/x/mobile/cmd/gobind@latest
-gomobile init
+cd legacy
+pip install -r requirements.txt
+python start.py
 ```
 
-## 开发运行
+`python desktop_app.py` 也行。
+
+## 从源码构建
+
+需要 Go 1.22 或更新版本，以及 Flutter 3.27 或更新版本。打 v2.0.0 用的是 Go 1.22.12 和 Flutter 3.47.9。编 Android 还需要 Android SDK 和 NDK。
 
 ```bash
-# 引擎测试
-cd engine && go test ./...
-
-# 桌面引擎二进制
 scripts/build-engine.sh
 
-# 界面
 cd app
 flutter pub get
 flutter test
-flutter run -d linux          # 或 windows / macos
-flutter run -d android
+flutter run -d linux
 ```
 
-`flutter run` 时当前目录是 `app/`，它会找到 `app/bin/jmengine`。安装包会把这个二进制放在可执行文件旁边。
+把 `linux` 换成 `windows` 或 `macos` 即可。工作目录在 `app/` 时，程序会找 `app/bin/jmengine`（Windows 是 `jmengine.exe`）。也可以用环境变量 `JM_ENGINE` 指向这个文件。
 
-只想看引擎是否在线：
+Windows 安装包在打 `v2.0.0` 标签时由 GitHub Actions 生成。本地可以这样编：
 
-```bash
-cd engine && go run ./cmd/jmengine -data /tmp/jmcomic
-# 输出 READY <port> <token>
+```bat
+cd engine
+set CGO_ENABLED=0
+go build -trimpath -ldflags "-s -w" -o ../app/bin/jmengine.exe ./cmd/jmengine
+cd ../app
+flutter build windows
+ISCC /DAppVersion=2.0.0 app\windows\installer\JMComicReader.iss
 ```
 
-## 构建
-
-**Linux 桌面**
+Linux：
 
 ```bash
 scripts/build-engine.sh
@@ -97,83 +87,39 @@ cd app && flutter build linux
 
 产物在 `app/build/linux/x64/release/bundle/`。
 
-**Windows**
-
-发布用的安装包是 `JMComicReader-Setup-v2.0.0.exe`，由 GitHub Actions 在 Windows 上生成。本地也可以编：
-
-```bash
-cd engine
-set CGO_ENABLED=0
-go build -trimpath -ldflags "-s -w" -o ../app/bin/jmengine.exe ./cmd/jmengine
-cd ../app && flutter build windows
-ISCC /DAppVersion=2.0.0 app\windows\installer\JMComicReader.iss
-```
-
-安装程序会把 `JMComicReader.exe` 和旁边的 `jmengine.exe` 一起装进 `%LOCALAPPDATA%\Programs\JMComicReader`。
-
-**macOS**
-
-同样先 `go build -o app/bin/jmengine ./cmd/jmengine`，再 `flutter build macos`。运行时也会查找可执行文件旁边的 `jmengine`。
-
-**Android**
+Android 只编了 arm64：
 
 ```bash
 scripts/build-android-engine.sh
-cd app && flutter build apk
+cd app && flutter build apk --release --target-platform android-arm64
 ```
 
-`app/android` 的 `preBuild` 会调用上面的脚本。AAR 打进 APK 后，手机上的搜索和下载不再经过电脑。
+`scripts/build-android-engine.sh` 会把 gomobile 固定在仍能用 Go 1.22 编译的那个修订上。
 
-**iOS（尚未在本环境编过包）**
+macOS 先把引擎编到 `app/bin/jmengine`，再执行 `flutter build macos`。iOS 工程在仓库里，但没有打过包。
+
+只启动引擎、不打开界面：
 
 ```bash
-cd engine
-gomobile bind -target=ios -o Jmengine.xcframework ./jmengine
+cd engine && go run ./cmd/jmengine -data /tmp/jmcomic
 ```
 
-把 `Jmengine.xcframework` 加进 `app/ios/Runner`，然后在 `AppDelegate.swift` 的 `jmcomic/engine` 通道里调用 `JmengineStart(dataDir)`，返回端口。令牌写在数据目录的 `engine.token`。
+正常时会打印一行 `READY`，后面是端口和令牌。
 
-## 从 1.x 迁移
-
-1.x 是 Python 3.8 + Flask + pywebview，手机只能打开电脑上的网页。那套代码在 `legacy/`，仍可按原来的方式运行：
-
-```bash
-cd legacy
-pip install -r requirements.txt
-python start.py          # 或 python desktop_app.py
-```
-
-2.0 不读取旧的 `comics.db`。旧下载目录的形状还认：`{编号}_{标题}/` 下面要么是章节子目录，要么是平铺的图片。把这些文件夹放进新的数据目录下的 `comics/`，然后在设置里点「重新扫描书架」。
-
-旧的 `jm_option.yml` 不会自动导入。域名和并发改在设置页里。应用默认会向发布列表要当前 API 域名，也可以自己填。
-
-2.0 不再生成 PDF。阅读用的是解码后的图片。
-
-## 配置
-
-设置页可以改：
-
-- API 域名、图片域名
-- 是否在启动时刷新 API 域名
-- 同时下载的图片数（1–16）
-- 清理封面缓存
-- 重新扫描 `comics/`
-
-阅读偏好（自适应 / 单页 / 跨页 / 长条、适宽 / 完整、从左或从右）会记在同一份配置里。
-
-## 测试
+测试不访问外网：
 
 ```bash
 cd engine && go test ./...
 cd app && flutter test
 ```
 
-Go 测试覆盖加解密、切图、搜索解析，以及「下载 → 书架 → 阅读」这条本地路径。不依赖外网。
+## 目录
 
-## 免责声明
-
-本项目仅供学习交流，请勿用于非法用途。漫画资源来自网络，本程序不会在自有服务器上保存内容。使用前请确认已年满 18 岁。
+- [`engine/`](engine/)：Go 引擎。`cmd/jmengine` 是桌面进程，`jmengine/` 是嵌进 Android 的入口
+- [`app/`](app/)：Flutter 界面和阅读器
+- [`legacy/`](legacy/)：1.x 的 Python 程序
+- [`scripts/`](scripts/)：编译引擎的脚本
 
 ## 许可
 
-[MIT](LICENSE)
+[MIT](LICENSE)。代码仓库：<https://github.com/bingking148/JMComicReaderProject>
