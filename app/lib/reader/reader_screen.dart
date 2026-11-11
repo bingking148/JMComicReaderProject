@@ -416,6 +416,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         rtl: _rtl,
         readerBackground: _background,
         keepAwake: _awake ? 'on' : 'off',
+        keepScreenOn: _awake,
         orientation: _orientation,
         readerDim: _dim,
         stripSpeed: _stripSpeed,

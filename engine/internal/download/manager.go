@@ -141,6 +141,27 @@ func (m *Manager) Resume(id int64) error {
 	return nil
 }
 
+// Halt pauses every active transfer so the library directory can be moved.
+func (m *Manager) Halt() {
+	m.mu.Lock()
+	var cancel []context.CancelFunc
+	for _, job := range m.jobs {
+		if job.cancel == nil {
+			continue
+		}
+		if job.Status == "running" || job.Status == "queued" {
+			job.Status = "paused"
+			job.Message = "数据目录即将更换"
+			cancel = append(cancel, job.cancel)
+			_ = m.lib.SaveJob(job.Job)
+		}
+	}
+	m.mu.Unlock()
+	for _, fn := range cancel {
+		fn()
+	}
+}
+
 func (m *Manager) Cancel(id int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

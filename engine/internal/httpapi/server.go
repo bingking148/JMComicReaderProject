@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bingking148/JMComicReaderProject/engine/internal/config"
+	"github.com/bingking148/JMComicReaderProject/engine/internal/dataroot"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/library"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/version"
@@ -31,6 +32,8 @@ type Backend interface {
 	Reader(id int64) (library.ReaderDoc, error)
 	SaveProgress(id int64, p library.Progress) error
 	Rescan() (int, error)
+	ImportPath(source string) (library.ImportReport, error)
+	Storage() library.Storage
 	RecentSearches() ([]string, error)
 	Settings() config.Public
 	UpdateSettings(config.Settings) (config.Public, error)
@@ -38,6 +41,7 @@ type Backend interface {
 	CoverFile(ctx context.Context, id int64) (string, error)
 	CacheStatus() (int64, error)
 	ClearCache() (int64, error)
+	Relocate(path, mode string) (dataroot.Result, error)
 	AgeAccepted() bool
 }
 
@@ -63,9 +67,12 @@ func New(b Backend, token string) http.Handler {
 	mux.HandleFunc("GET /v1/library/{id}/reader", s.reader)
 	mux.HandleFunc("PUT /v1/library/{id}/progress", s.progress)
 	mux.HandleFunc("POST /v1/library/rescan", s.rescan)
+	mux.HandleFunc("POST /v1/library/import", s.importLibrary)
+	mux.HandleFunc("GET /v1/storage", s.storage)
 	mux.HandleFunc("GET /v1/covers/{id}", s.cover)
 	mux.HandleFunc("GET /v1/cache", s.cache)
 	mux.HandleFunc("POST /v1/cache/clear", s.clearCache)
+	mux.HandleFunc("POST /v1/data-root", s.relocate)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
@@ -331,6 +338,53 @@ func (s *server) cache(w http.ResponseWriter, _ *http.Request) {
 		"bytes": size,
 		"mb":    float64(size) / (1024 * 1024),
 	})
+}
+
+func (s *server) importLibrary(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "导入参数不正确")
+		return
+	}
+	report, err := s.b.ImportPath(body.Path)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (s *server) storage(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, s.b.Storage())
+}
+
+func (s *server) relocate(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+		Mode string `json:"mode"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "数据目录参数不正确")
+		return
+	}
+	result, err := s.b.Relocate(body.Path, body.Mode)
+	if err != nil {
+		status := http.StatusBadGateway
+		var se interface{ StatusCode() int }
+		if errors.As(err, &se) {
+			status = se.StatusCode()
+		}
+		writeJSON(w, status, map[string]any{
+			"error":   err.Error(),
+			"restart": result.Restart,
+			"oldPath": result.OldPath,
+			"newPath": result.NewPath,
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *server) clearCache(w http.ResponseWriter, _ *http.Request) {

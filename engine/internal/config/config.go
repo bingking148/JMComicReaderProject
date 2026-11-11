@@ -17,20 +17,25 @@ type Settings struct {
 	AppVersion        string   `json:"appVersion"`
 	AutoUpdateDomains bool     `json:"autoUpdateDomains"`
 	AgeAccepted       bool     `json:"ageAccepted"`
-	ReaderMode        string  `json:"readerMode"`
-	FitMode           string  `json:"fitMode"`
-	RTL               bool    `json:"rtl"`
-	ReaderBackground  string  `json:"readerBackground"`
-	KeepAwake         string  `json:"keepAwake"`
-	Orientation       string  `json:"orientation"`
-	ReaderDim         float64 `json:"readerDim"`
-	StripSpeed        float64 `json:"stripSpeed"`
+	ReaderMode       string  `json:"readerMode"`
+	FitMode          string  `json:"fitMode"`
+	RTL              bool    `json:"rtl"`
+	ReaderBackground string  `json:"readerBackground"`
+	KeepAwake        string  `json:"keepAwake"`
+	Orientation      string  `json:"orientation"`
+	ReaderDim        float64 `json:"readerDim"`
+	StripSpeed       float64 `json:"stripSpeed"`
+	// KeepScreenOn stays on while a book is open. Nil means the user has not
+	// chosen, which is treated as on.
+	KeepScreenOn *bool `json:"keepScreenOn,omitempty"`
 }
 
-// Public is what the UI is allowed to see and edit. DataDir is read-only.
+// Public is what the UI is allowed to see and edit. DataDir and the product
+// version are read-only.
 type Public struct {
 	Settings
-	DataDir string `json:"dataDir"`
+	DataDir        string `json:"dataDir"`
+	ProductVersion string `json:"productVersion"`
 }
 
 var (
@@ -60,8 +65,11 @@ func Defaults() Settings {
 		AutoUpdateDomains: true,
 		ReaderMode:        "smart",
 		FitMode:           "width",
+		KeepScreenOn:      boolPtr(true),
 	}
 }
+
+func boolPtr(v bool) *bool { return &v }
 
 // Store persists settings atomically.
 type Store struct {
@@ -171,6 +179,9 @@ func sanitize(in Settings) Settings {
 	if in.AppVersion == "" {
 		in.AppVersion = def.AppVersion
 	}
+	if in.KeepScreenOn == nil {
+		in.KeepScreenOn = boolPtr(true)
+	}
 	return in
 }
 
@@ -205,5 +216,8 @@ func clone(s Settings) Settings {
 	out := s
 	out.APIDomains = append([]string{}, s.APIDomains...)
 	out.ImageDomains = append([]string{}, s.ImageDomains...)
+	if s.KeepScreenOn != nil {
+		out.KeepScreenOn = boolPtr(*s.KeepScreenOn)
+	}
 	return out
 }
