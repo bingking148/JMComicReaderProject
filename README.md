@@ -1,17 +1,12 @@
 # JMComicReader
 
-Local JM comic reader for Windows and Android.
+2.0 堂堂上线。
 
-在本机搜索、下载和阅读 JM 漫画。站点协议、下载和书架由 Go 引擎完成，界面是 Flutter。发布的 Windows 安装包和 Android APK 都自带引擎，不需要另开一台电脑上的服务。
+在本机搜索、下载和阅读 JM 漫画。站点协议、下载和书架由 Go 引擎完成，界面是 Flutter。Windows 安装包和 Android APK 都自带引擎，不需要另开一台电脑上的服务。
 
 本项目仅供学习交流，请勿用于非法用途。漫画来自网络，程序不会在自有服务器上保存内容。使用前请确认已年满 18 岁。
 
-## 下载
-
-当前版本是 [v2.1.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.1.0)。
-
-- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.1.0/JMComicReader-2.1.0-arm64.apk)
-- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.1.0/JMComicReader-Setup-v2.1.0.exe)
+## 文件放在哪
 
 Windows 安装程序默认把程序装到 `%LOCALAPPDATA%\Programs\JMComicReader`，目录里是 `JMComicReader.exe` 和旁边的 `jmengine.exe`。漫画不在这里。
 
@@ -29,10 +24,18 @@ Linux 和 macOS 可以按下面的步骤自己编译。发布页里没有这两�
 - 用关键词搜索，或直接输入 JM 编号打开一本
 - 下载可以暂停、继续；已经下完的页会跳过
 - 在书架里阅读已下载的漫画，阅读进度按本保存
-- 阅读时点页面中间或按 Esc 显示工具条。底栏是上一话、页码滑块和下一话，适宽、底色、遮光等在阅读设置里。可以缩放，也可以用键盘翻页
+- 阅读时会按页面和窗口在单页、跨页、长条之间选择，也可以自己指定。可以缩放，也可以用键盘翻页
 - 设置里可以改 API 域名、图片域名和同时下载的图片数（1–16），也可以只清理封面缓存
 
 第一次打开需要确认年龄。
+
+## 2.1.0
+
+阅读器打开后直接看页面。点页面中间或按 Esc 才显示工具条。底栏是上一话、页码滑块和下一话。适宽、底色、遮光、方向和长条滚动在阅读设置里。目录和页面缩略图可以跳转。
+
+- [v2.1.0](https://github.com/bingking148/JMComicReaderProject/releases/tag/v2.1.0)
+- [Android arm64 APK](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.1.0/JMComicReader-2.1.0-arm64.apk)
+- [Windows 安装程序](https://github.com/bingking148/JMComicReaderProject/releases/download/v2.1.0/JMComicReader-Setup-v2.1.0.exe)
 
 ## 从 1.x 搬过来
 
