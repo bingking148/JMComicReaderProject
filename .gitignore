@@ -63,3 +63,17 @@ pytest_cache/
 # static/
 # templates/
 pdf/
+
+# Go
+engine/bin/
+
+# Flutter / engine artifacts
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/build/
+app/bin/jmengine
+app/bin/jmengine.exe
+app/android/app/libs/*.aar
+app/android/app/libs/*.jar
+app/android/.gradle/
