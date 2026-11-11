@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../engine/client.dart';
@@ -19,16 +21,20 @@ class _SettingsPageState extends State<SettingsPage> {
   int _cache = 0;
   int? _concurrency;
   String? _note;
+  late final TextEditingController _dataDir;
+  bool _movingData = false;
 
   @override
   void initState() {
     super.initState();
     _api = TextEditingController();
     _images = TextEditingController();
+    _dataDir = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = SessionScope.of(context).settings;
       _api.text = settings.apiDomains.join('\n');
       _images.text = settings.imageDomains.join('\n');
+      _dataDir.text = settings.dataDir;
       _refreshCache();
     });
   }
@@ -37,7 +43,47 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _api.dispose();
     _images.dispose();
+    _dataDir.dispose();
     super.dispose();
+  }
+
+  bool get _canChooseDataDir => !Platform.isAndroid && !Platform.isIOS;
+
+  Future<void> _changeDataDir(String current) async {
+    final next = _dataDir.text.trim();
+    if (next.isEmpty || next == current) {
+      setState(() => _note = '请填写一个新的数据目录');
+      return;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('更改漫画数据目录'),
+        content: Text(
+          '当前：$current\n新目录：$next\n\n'
+          '移动数据：漫画会搬到新目录，旧目录不再保存这些文件。\n'
+          '只改路径：旧目录原样留下，应用改为使用新目录。',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(context, 'switch'), child: const Text('只改路径')),
+          TextButton(onPressed: () => Navigator.pop(context, 'move'), child: const Text('移动数据')),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    setState(() => _movingData = true);
+    try {
+      final saved = await SessionScope.of(context).changeDataDirectory(next, move: choice == 'move');
+      if (!mounted) return;
+      _dataDir.text = saved;
+      setState(() => _note = choice == 'move' ? '数据已移动到新目录' : '已改用新目录，旧目录仍保留');
+    } on EngineException catch (err) {
+      if (!mounted) return;
+      setState(() => _note = err.message);
+    } finally {
+      if (mounted) setState(() => _movingData = false);
+    }
   }
 
   List<String> _lines(TextEditingController controller) {
@@ -71,8 +117,29 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.fromLTRB(28, 22, 28, 48),
         children: [
           const Text('设置', style: TextStyle(fontSize: 26)),
+          const SizedBox(height: 18),
+          const SectionLabel('漫画数据目录'),
           const SizedBox(height: 6),
-          Text('数据目录  ${settings.dataDir}', style: const TextStyle(color: InkColors.mute, fontSize: 12)),
+          const Text(
+            '封面、下载的漫画和书架数据库都在这里。它和程序安装位置不是同一个文件夹。',
+            style: TextStyle(color: InkColors.mute, height: 1.4),
+          ),
+          const SizedBox(height: 8),
+          if (_canChooseDataDir)
+            TextField(
+              controller: _dataDir,
+              decoration: const InputDecoration(hintText: r'D:\JMComicReader'),
+            )
+          else
+            SelectableText(settings.dataDir, style: const TextStyle(color: InkColors.dim)),
+          if (_canChooseDataDir)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _movingData ? null : () => _changeDataDir(settings.dataDir),
+                child: Text(_movingData ? '正在处理…' : '更改数据目录'),
+              ),
+            ),
           const SizedBox(height: 22),
           const SectionLabel('API 域名'),
           TextField(controller: _api, maxLines: 5, decoration: const InputDecoration(hintText: '每行一个')),

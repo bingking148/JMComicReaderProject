@@ -16,6 +16,7 @@ import (
 
 	"github.com/bingking148/JMComicReaderProject/engine/internal/config"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/cover"
+	"github.com/bingking148/JMComicReaderProject/engine/internal/dataroot"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/download"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/httpapi"
 	"github.com/bingking148/JMComicReaderProject/engine/internal/jm"
@@ -148,6 +149,50 @@ func (a *App) Bootstrap(ctx context.Context) {
 	_ = a.client.Warmup(ctx)
 	if ver := a.client.Version(); ver != "" {
 		_, _ = a.Config.Update(func(s *config.Settings) { s.AppVersion = ver })
+	}
+}
+
+// Relocate points the library at a new directory.
+// mode "move" transfers the current files and removes them from the old path.
+// mode "switch" leaves the old directory untouched.
+func (a *App) Relocate(path, mode string) (dataroot.Result, error) {
+	next, err := dataroot.CleanAbs(path)
+	if err != nil {
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: err.Error()}
+	}
+	current := filepath.Clean(a.DataDir)
+	if dataroot.Same(current, next) {
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: "新目录和当前数据目录相同"}
+	}
+	if dataroot.Inside(current, next) || dataroot.Inside(next, current) {
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: "数据目录不能放在当前数据目录里面，也不能把当前目录包进去"}
+	}
+	switch mode {
+	case "switch":
+		if err := os.MkdirAll(next, 0o755); err != nil {
+			return dataroot.Result{}, err
+		}
+		if err := dataroot.Write(next); err != nil {
+			return dataroot.Result{}, err
+		}
+		return dataroot.Result{OldPath: current, NewPath: next, Moved: false, Restart: true}, nil
+	case "move":
+		if a.Downloads != nil {
+			a.Downloads.Halt()
+			time.Sleep(200 * time.Millisecond)
+		}
+		if a.Library != nil {
+			_ = a.Library.Close()
+		}
+		if err := dataroot.Move(current, next); err != nil {
+			return dataroot.Result{Restart: true, OldPath: current, NewPath: next}, &StatusError{Code: 500, Msg: err.Error()}
+		}
+		if err := dataroot.Write(next); err != nil {
+			return dataroot.Result{Restart: true, OldPath: current, NewPath: next, Moved: true}, err
+		}
+		return dataroot.Result{OldPath: current, NewPath: next, Moved: true, Restart: true}, nil
+	default:
+		return dataroot.Result{}, &StatusError{Code: 400, Msg: "请选择移动数据或只改路径"}
 	}
 }
 
